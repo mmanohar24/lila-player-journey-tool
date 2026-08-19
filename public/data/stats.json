@@ -1,0 +1,18 @@
+{
+  "files_processed": 1243,
+  "files_failed": 0,
+  "total_rows": 89104,
+  "unique_players": 339,
+  "unique_matches": 796,
+  "event_type_counts": {
+    "Position": 51347,
+    "Loot": 12885,
+    "BotKilled": 700,
+    "KilledByStorm": 39,
+    "BotKill": 2415,
+    "BotPosition": 21712,
+    "Kill": 3,
+    "Killed": 3
+  },
+  "failures": []
+}
