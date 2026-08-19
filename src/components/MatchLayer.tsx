@@ -40,10 +40,16 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
 
   return (
     <g>
-      {/* Journey paths, drawn under the markers so markers stay legible on top. */}
+      {/* One focusable group per player: journey path + that player's position samples.
+          Position samples are the bulk of the data (~82% of rows) and are labelled once
+          per player rather than per dot -- individually labelling ~800 "position sample"
+          nodes would bury the meaningful combat/loot events for a screen-reader user and
+          create a ~1000-stop tab trap. Grouping keeps every player keyboard-reachable
+          (~16 stops) while still conveying the same content (WCAG 1.1.1). */}
       {eventsByPlayer.map((events, playerIndex) => {
-        if (events.length < 2) return null;
+        if (events.length === 0) return null;
         const player = match.players[playerIndex];
+        const positions = events.filter((ev) => isPositionEvent(ev.e));
         const points = events
           .map((ev) => {
             const { px, py } = worldToPixel(ev.x, ev.z, map);
@@ -52,38 +58,44 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
           .join(" ");
 
         return (
-          <polyline
-            key={`path-${playerIndex}`}
-            points={points}
-            fill="none"
-            stroke={player.is_bot ? "var(--color-bot)" : "var(--color-human)"}
-            strokeOpacity={player.is_bot ? 0.35 : 0.5}
-            strokeWidth={pathWidth}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            aria-hidden="true"
-          />
-        );
-      })}
-
-      {/* Position samples: the bulk of the data (~82% of rows). Grouped per player and
-          labelled once per group rather than per dot -- individually labelling ~800
-          "position sample" nodes would bury the meaningful combat/loot events in noise
-          for a screen-reader user, while the group label still conveys the same content
-          (WCAG 1.1.1). The discrete events below are labelled and focusable one by one. */}
-      {eventsByPlayer.map((events, playerIndex) => {
-        const positions = events.filter((ev) => isPositionEvent(ev.e));
-        if (positions.length === 0) return null;
-        const player = match.players[playerIndex];
-
-        return (
           <g
-            key={`positions-${playerIndex}`}
+            key={`journey-${playerIndex}`}
             role="img"
+            tabIndex={0}
+            className="journey"
             aria-label={`${player.is_bot ? "Bot" : "Human player"} ${player.id}: journey path with ${
               positions.length
             } position samples`}
           >
+            <title>{`${player.is_bot ? "Bot" : "Human"} ${player.id}\n${
+              positions.length
+            } position samples`}</title>
+
+            {/* Focus/hover halo: highlights this player's whole route. */}
+            {events.length > 1 && (
+              <polyline
+                className="journey-halo"
+                points={points}
+                fill="none"
+                stroke="var(--color-focusRing)"
+                strokeWidth={pathWidth * 5}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            )}
+
+            {events.length > 1 && (
+              <polyline
+                points={points}
+                fill="none"
+                stroke={player.is_bot ? "var(--color-bot)" : "var(--color-human)"}
+                strokeOpacity={player.is_bot ? 0.35 : 0.5}
+                strokeWidth={pathWidth}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            )}
+
             {positions.map((ev, i) => {
               const { px, py } = worldToPixel(ev.x, ev.z, map);
               return (
@@ -94,7 +106,6 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
                   r={positionRadius}
                   fill={markerColor(ev.e, player.is_bot)}
                   fillOpacity={player.is_bot ? BOT_OPACITY : HUMAN_OPACITY}
-                  aria-hidden="true"
                 />
               );
             })}

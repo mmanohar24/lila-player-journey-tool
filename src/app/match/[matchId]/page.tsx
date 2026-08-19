@@ -36,7 +36,7 @@ export default async function MatchPage({ params }: PageProps) {
 
         {/* Bottom-left, clear of the zoom controls in the bottom-right. */}
         <div className="pointer-events-auto w-fit max-w-md">
-          <Legend />
+          <Legend match={match} />
         </div>
       </div>
     </main>

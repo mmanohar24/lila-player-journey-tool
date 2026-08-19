@@ -122,3 +122,25 @@ body {
 .marker:hover .marker-focus-ring {
   opacity: 1;
 }
+
+/* Player journeys are focusable too (one stop per player, not per position sample),
+   so a keyboard user can enumerate who was in the match. Same halo technique as the
+   event markers above, since `outline` on an SVG <g> is unreliable. */
+.journey {
+  cursor: pointer;
+}
+
+.journey:focus,
+.journey:focus-visible {
+  outline: none;
+}
+
+.journey-halo {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.journey:focus-visible .journey-halo,
+.journey:hover .journey-halo {
+  opacity: 0.45;
+}
