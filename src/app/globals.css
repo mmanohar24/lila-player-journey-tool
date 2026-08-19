@@ -1,26 +1,102 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Tokens below are generated from design.md via:
+ *   npx @google/design.md export design.md --format css-tailwind
+ * with hand-fixes for bugs in that output, verified empirically before
+ * working around them (both are real Tailwind v4 behaviors, not guesses):
+ *
+ * 1. The CLI left uiEmphasis/heading fontFamily as an unresolved literal
+ *    "{typography.ui.fontFamily}" string instead of resolving the token
+ *    reference -- broken CSS. Typography is applied via the semantic
+ *    .text-ui / .text-heading / etc. classes below instead of Tailwind's
+ *    auto-generated per-key utilities, which sidesteps this and #2.
+ *
+ * 2. --font-weight-* keys (ui, heading, ...) share a name with the
+ *    --font-* (family) keys -- Tailwind v4 namespaces both to a
+ *    `.font-{key}` utility class, so the weight utility silently never
+ *    applies (confirmed by inspecting the compiled CSS: only the
+ *    font-family rule was emitted for the shared key).
+ *
+ * design.md's `spacing` scale (xs/sm/md/lg/xl/xxl) is deliberately NOT
+ * translated to a custom --spacing-* theme block here. Tailwind v4 uses
+ * ONE shared --spacing-* namespace for width/height/max-width/gap/padding/
+ * margin/inset utilities together, and its OWN built-in scale already uses
+ * these exact key names (max-w-md, w-lg, etc. default to ~28rem/32rem
+ * scale values). Defining --spacing-md: 12px silently overrode Tailwind's
+ * built-in max-w-md/w-md/h-md from their intended size down to 12px
+ * everywhere in the app -- confirmed in the compiled CSS output:
+ * `.max-w-md { max-width: var(--spacing-md); }`. design.md's scale happens
+ * to land exactly on Tailwind's default numeric steps (4px each), so use
+ * those instead: xs=1 (4px), sm=2 (8px), md=3 (12px), lg=5 (20px),
+ * xl=8 (32px), xxl=12 (48px) -- e.g. `gap-3` for design.md's `spacing.md`.
+ */
+@theme {
+  --color-background: #14151b;
+  --color-surface: #1f212a;
+  --color-surfaceRaised: #2a2d38;
+  --color-border: #3e424c;
+  --color-textPrimary: #ede9e2;
+  --color-textSecondary: #9a97a6;
+  --color-human: #5df8f4;
+  --color-bot: #7e8fa0;
+  --color-loot: #f8cf65;
+  --color-kill: #f63d4c;
+  --color-killed: #c23440;
+  --color-storm: #d34dd9;
+  --color-focusRing: #5df8f4;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-ui: var(--font-inter), -apple-system, "Segoe UI", sans-serif;
+  --font-data: var(--font-jetbrains-mono), "SF Mono", Consolas, monospace;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-textPrimary);
+}
+
+/* Semantic typography classes (design.md `typography` tokens) */
+.text-ui {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0px;
+}
+
+.text-ui-emphasis {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0px;
+}
+
+.text-heading {
+  font-family: var(--font-ui);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.text-data {
+  font-family: var(--font-data);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* design.md focusRing token: visible keyboard focus ring, not browser default */
+:focus-visible {
+  outline: 2px solid var(--color-focusRing);
+  outline-offset: 2px;
 }
