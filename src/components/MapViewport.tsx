@@ -85,6 +85,29 @@ function zoomAt(
   return clampViewBox(worldX - fx * newW, worldY - fy * newH, newW, aspect, mapWidth, mapHeight);
 }
 
+interface Tooltip {
+  title: string;
+  sub?: string;
+  meta?: string;
+  color?: string;
+  /** Position relative to the viewport container. */
+  x: number;
+  y: number;
+}
+
+/** Reads the data-tt-* payload off the nearest marker/journey ancestor, if any. */
+function readTooltipTarget(target: EventTarget | null): Omit<Tooltip, "x" | "y"> | null {
+  if (!(target instanceof Element)) return null;
+  const el = target.closest("[data-tt-title]");
+  if (!(el instanceof Element)) return null;
+  return {
+    title: el.getAttribute("data-tt-title") ?? "",
+    sub: el.getAttribute("data-tt-sub") ?? undefined,
+    meta: el.getAttribute("data-tt-meta") ?? undefined,
+    color: el.getAttribute("data-tt-color") ?? undefined,
+  };
+}
+
 interface MapViewportProps {
   map: MapConfig;
   ariaLabel: string;
@@ -93,6 +116,8 @@ interface MapViewportProps {
 
 export function MapViewport({ map, ariaLabel, children }: MapViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [tooltip, setTooltip] = useState<Tooltip | null>(null);
   const fitViewBox: ViewBox = useMemo(
     () => ({ x: 0, y: 0, w: map.width, h: map.height }),
     [map.width, map.height]
@@ -159,7 +184,54 @@ export function MapViewport({ map, ariaLabel, children }: MapViewportProps) {
     return () => el.removeEventListener("wheel", handleWheel);
   }, [map.width, map.height]);
 
+  /** Places the tooltip near a point, flipping it away from the container's edges so it
+   *  never spills outside the viewport. Measures the real rendered box rather than
+   *  guessing at its size. */
+  const positionTooltip = useCallback(
+    (payload: Omit<Tooltip, "x" | "y">, clientX: number, clientY: number) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const tip = tooltipRef.current?.getBoundingClientRect();
+      const tw = tip?.width ?? 200;
+      const th = tip?.height ?? 72;
+      const gap = 14;
+
+      let x = clientX - rect.left + gap;
+      let y = clientY - rect.top + gap;
+      if (x + tw > rect.width) x = clientX - rect.left - tw - gap;
+      if (y + th > rect.height) y = clientY - rect.top - th - gap;
+
+      setTooltip({ ...payload, x: Math.max(4, x), y: Math.max(4, y) });
+    },
+    []
+  );
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (isDragging) return;
+      const payload = readTooltipTarget(e.target);
+      if (!payload) {
+        setTooltip((prev) => (prev ? null : prev));
+        return;
+      }
+      positionTooltip(payload, e.clientX, e.clientY);
+    },
+    [isDragging, positionTooltip]
+  );
+
+  /** Keyboard focus gets the same tooltip, anchored to the focused marker's centre. */
+  const handleFocusIn = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      const payload = readTooltipTarget(e.target);
+      if (!payload) return;
+      const box = (e.target as Element).getBoundingClientRect();
+      positionTooltip(payload, box.left + box.width / 2, box.top + box.height / 2);
+    },
+    [positionTooltip]
+  );
+
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    setTooltip(null);
     try {
       (e.target as Element).setPointerCapture(e.pointerId);
     } catch {
@@ -293,6 +365,10 @@ export function MapViewport({ map, ariaLabel, children }: MapViewportProps) {
       onPointerUp={endPointer}
       onPointerCancel={endPointer}
       onKeyDown={handleKeyDown}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setTooltip(null)}
+      onFocus={handleFocusIn}
+      onBlur={() => setTooltip(null)}
     >
       {/* Ambient backdrop: the minimaps are square-ish and most viewports aren't, so the
           crisp map (below, letterboxed via the SVG's default "contain" fit -- the whole
@@ -321,6 +397,40 @@ export function MapViewport({ map, ariaLabel, children }: MapViewportProps) {
         <image href={map.image} x={0} y={0} width={map.width} height={map.height} />
         {children}
       </svg>
+
+      {/* Marker tooltip. Rendered as a styled element rather than an SVG <title> so it
+          shares the panel treatment used by the match info card and legend, and appears
+          immediately instead of waiting on the browser's ~1s native-tooltip delay.
+          aria-hidden: the same content is already on each marker's aria-label, so
+          announcing it twice would just be noise. */}
+      <div
+        ref={tooltipRef}
+        aria-hidden="true"
+        className={`pointer-events-none absolute z-10 max-w-xs rounded-md border border-border bg-surface/90 px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-opacity duration-75 ${
+          tooltip ? "opacity-100" : "opacity-0"
+        }`}
+        style={{
+          left: tooltip?.x ?? 0,
+          top: tooltip?.y ?? 0,
+          visibility: tooltip ? "visible" : "hidden",
+        }}
+      >
+        {tooltip && (
+          <>
+            <p className="text-ui-emphasis flex items-center gap-2 text-textPrimary">
+              {tooltip.color && (
+                <span
+                  className="inline-block h-2 w-2 shrink-0 rounded-pill"
+                  style={{ background: tooltip.color }}
+                />
+              )}
+              {tooltip.title}
+            </p>
+            {tooltip.sub && <p className="text-data text-textSecondary">{tooltip.sub}</p>}
+            {tooltip.meta && <p className="text-ui text-textSecondary">{tooltip.meta}</p>}
+          </>
+        )}
+      </div>
 
       <div className="pointer-events-none absolute bottom-3 right-3 flex flex-col gap-1">
         <button

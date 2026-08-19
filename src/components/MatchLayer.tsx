@@ -66,10 +66,12 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
             aria-label={`${player.is_bot ? "Bot" : "Human player"} ${player.id}: journey path with ${
               positions.length
             } position samples`}
+            /* Tooltip content is read off these by MapViewport rather than rendered as
+               an SVG <title>: <title> produces the browser's native tooltip, which has a
+               fixed ~1s delay and can't be styled to match the app's surfaces. */
+            data-tt-title={`${player.is_bot ? "Bot" : "Human"} ${player.id}`}
+            data-tt-meta={`${positions.length} position samples`}
           >
-            <title>{`${player.is_bot ? "Bot" : "Human"} ${player.id}\n${
-              positions.length
-            } position samples`}</title>
 
             {/* Focus/hover halo: highlights this player's whole route. */}
             {events.length > 1 && (
@@ -114,8 +116,8 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
       })}
 
       {/* Discrete events (kills, deaths, storm, loot): the story of the match. Each is
-          individually focusable with its own aria-label, and carries an SVG <title> so
-          mouse users get a native hover tooltip too. */}
+          individually focusable with its own aria-label, and carries data-tt-* attributes
+          that MapViewport turns into a styled hover/focus tooltip. */}
       {match.events.map((ev, i) => {
         if (isPositionEvent(ev.e)) return null;
         const player = match.players[ev.p];
@@ -124,10 +126,17 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
         const label = markerAriaLabel(ev.e, player.is_bot, progress);
 
         return (
-          <g key={`event-${i}`} role="img" aria-label={label} tabIndex={0} className="marker">
-            <title>{`${EVENT_LABEL[ev.e]}\n${player.is_bot ? "Bot" : "Human"} ${
-              player.id
-            }\n${Math.round(progress)}% into match`}</title>
+          <g
+            key={`event-${i}`}
+            role="img"
+            aria-label={label}
+            tabIndex={0}
+            className="marker"
+            data-tt-title={EVENT_LABEL[ev.e]}
+            data-tt-sub={`${player.is_bot ? "Bot" : "Human"} ${player.id}`}
+            data-tt-meta={`${Math.round(progress)}% into match`}
+            data-tt-color={markerColor(ev.e, player.is_bot)}
+          >
             {/* Focus ring: SVG doesn't render `outline` reliably across browsers, so the
                 visible focus indicator (WCAG 2.4.7) is a real element toggled by CSS. */}
             <circle
