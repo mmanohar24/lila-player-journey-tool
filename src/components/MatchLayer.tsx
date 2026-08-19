@@ -1,6 +1,7 @@
 import { worldToPixel } from "@/lib/coordinates";
 import {
-  EVENT_LABEL,
+  eventPhrase,
+  eventRole,
   EVENT_SHAPE,
   isPositionEvent,
   markerAriaLabel,
@@ -132,8 +133,11 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
             aria-label={label}
             tabIndex={0}
             className="marker"
-            data-tt-title={EVENT_LABEL[ev.e]}
-            data-tt-sub={`${player.is_bot ? "Bot" : "Human"} ${player.id}`}
+            data-tt-title={eventPhrase(ev.e, player.is_bot).short}
+            /* Name the role ("Victim:" / "Killer:") rather than just the id: a bare
+               "Death (by a bot)" above a human's UUID reads as though the bot died,
+               when the row in fact belongs to the victim. */
+            data-tt-sub={`${eventRole(ev.e)}: ${player.is_bot ? "Bot" : "Human"} ${player.id}`}
             data-tt-meta={`${Math.round(progress)}% into match`}
             data-tt-color={markerColor(ev.e, player.is_bot)}
           >

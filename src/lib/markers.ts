@@ -33,29 +33,83 @@ export const EVENT_COLOR: Record<EventType, string> = {
   Loot: "var(--color-loot)",
 };
 
-/** Short noun label, for hover tooltips and the legend. */
+/** Generic category label, used by the legend (which aggregates across both player kinds). */
 export const EVENT_LABEL: Record<EventType, string> = {
   Position: "Position sample",
   BotPosition: "Position sample",
-  Kill: "Kill (player)",
-  BotKill: "Kill (bot)",
-  Killed: "Death (by player)",
-  BotKilled: "Death (by bot)",
+  Kill: "Kill",
+  BotKill: "Kill",
+  Killed: "Death",
+  BotKilled: "Death",
   KilledByStorm: "Death (storm)",
   Loot: "Loot pickup",
 };
 
-/** Verb phrase, so an aria-label reads as a sentence rather than stacked fragments. */
-const EVENT_DESCRIPTION: Record<EventType, string> = {
-  Position: "position sample",
-  BotPosition: "position sample",
-  Kill: "killed another player",
-  BotKill: "killed a bot",
-  Killed: "was killed by another player",
-  BotKilled: "was killed by a bot",
-  KilledByStorm: "was killed by the storm",
-  Loot: "picked up loot",
-};
+/**
+ * Whether the event's subject is the killer, the victim, or neither -- so a label can
+ * name the role explicitly. Without this, "Death (by bot)" next to a human's UUID reads
+ * as though the bot died, when the row actually belongs to the victim.
+ */
+export function eventRole(event: EventType): "Killer" | "Victim" | "Player" {
+  switch (event) {
+    case "Kill":
+    case "BotKill":
+      return "Killer";
+    case "Killed":
+    case "BotKilled":
+    case "KilledByStorm":
+      return "Victim";
+    default:
+      return "Player";
+  }
+}
+
+/**
+ * Event wording, resolved against the SUBJECT of the row (the file's owner).
+ *
+ * The assignment README defines these events as though every row belongs to a human
+ * ("BotKilled: A human player was killed by a bot"). The data disagrees: bots emit 183
+ * `BotKill` and 297 `BotKilled` rows of their own. On those rows the README's reading
+ * would have us assert the counterparty was a bot, and PRD.md §2 already establishes
+ * there is no killer/victim ID column to support such a claim. So the counterparty is
+ * only named where the README's definition actually applies -- human-owned rows -- and
+ * bot-owned rows fall back to neutral wording that claims only what the row states.
+ */
+export function eventPhrase(event: EventType, isBot: boolean): { short: string; sentence: string } {
+  if (isBot) {
+    switch (event) {
+      case "Kill":
+      case "BotKill":
+        return { short: "Kill", sentence: "got a kill" };
+      case "Killed":
+      case "BotKilled":
+        return { short: "Death", sentence: "was killed" };
+      case "KilledByStorm":
+        return { short: "Death (storm)", sentence: "was killed by the storm" };
+      case "Loot":
+        return { short: "Loot pickup", sentence: "picked up loot" };
+      default:
+        return { short: "Position sample", sentence: "position sample" };
+    }
+  }
+
+  switch (event) {
+    case "Kill":
+      return { short: "Kill (of a player)", sentence: "killed another player" };
+    case "BotKill":
+      return { short: "Kill (of a bot)", sentence: "killed a bot" };
+    case "Killed":
+      return { short: "Death (by a player)", sentence: "was killed by another player" };
+    case "BotKilled":
+      return { short: "Death (by a bot)", sentence: "was killed by a bot" };
+    case "KilledByStorm":
+      return { short: "Death (storm)", sentence: "was killed by the storm" };
+    case "Loot":
+      return { short: "Loot pickup", sentence: "picked up loot" };
+    default:
+      return { short: "Position sample", sentence: "position sample" };
+  }
+}
 
 export function isPositionEvent(event: EventType): boolean {
   return event === "Position" || event === "BotPosition";
@@ -93,7 +147,7 @@ export function markerAriaLabel(
   isBot: boolean,
   progressPercent: number
 ): string {
-  return `${isBot ? "Bot" : "Human player"} ${EVENT_DESCRIPTION[event]}, ${Math.round(
+  return `${isBot ? "Bot" : "Human player"} ${eventPhrase(event, isBot).sentence}, ${Math.round(
     progressPercent
   )}% into match`;
 }
