@@ -100,3 +100,25 @@ body {
   outline: 2px solid var(--color-focusRing);
   outline-offset: 2px;
 }
+
+/* Event markers are SVG <g> elements, where `outline` isn't reliably rendered across
+   browsers -- so the focus indicator is a real <circle> shown only on keyboard focus.
+   Hover reveals it too, as an affordance that these markers are interactive. */
+.marker {
+  cursor: pointer;
+}
+
+.marker:focus,
+.marker:focus-visible {
+  outline: none;
+}
+
+.marker-focus-ring {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.marker:focus-visible .marker-focus-ring,
+.marker:hover .marker-focus-ring {
+  opacity: 1;
+}
