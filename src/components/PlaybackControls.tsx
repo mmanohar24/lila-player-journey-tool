@@ -177,7 +177,19 @@ export function PlaybackControls({ eventCount }: PlaybackControlsProps) {
           aria-label={playing ? "Pause playback" : "Play match timeline"}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm border border-border bg-surfaceRaised text-ui-emphasis text-textPrimary"
         >
-          {playing ? "❚❚" : "▶"}
+          {/* Drawn as SVG rather than the ❚❚ / ▶ glyphs: those render at whatever weight
+              and baseline the font happens to give them, which read as heavy and sat
+              off-centre in the button. */}
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" fill="currentColor">
+            {playing ? (
+              <>
+                <rect x="2.5" y="1.5" width="3.5" height="11" rx="1" />
+                <rect x="8" y="1.5" width="3.5" height="11" rx="1" />
+              </>
+            ) : (
+              <path d="M3.5 1.9a1 1 0 0 1 1.52-.85l7.1 4.6a1 1 0 0 1 0 1.7l-7.1 4.6a1 1 0 0 1-1.52-.85z" />
+            )}
+          </svg>
         </button>
 
         <input

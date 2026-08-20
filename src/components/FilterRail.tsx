@@ -188,7 +188,11 @@ export function FilterRail({
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col">
+        {/* The min-height belongs on this section, not on the <ul> inside it: with the
+            section free to shrink below the list's own minimum, the list simply
+            overflowed its parent and painted over the panels below. Constraining the
+            section makes the rail scroll instead. */}
+        <div className="flex min-h-[252px] flex-1 flex-col">
           <p className="text-ui text-textSecondary">
             {filtered.length} match{filtered.length === 1 ? "" : "es"}
             {filtered.length > 0 && " · most participants first"}
@@ -201,6 +205,10 @@ export function FilterRail({
               Roving tabindex: only one row is ever in the tab order, and arrow keys move
               between rows. Making all 796 rows focusable put 839 tab stops on the page --
               the same trap avoided for the map's position markers, reintroduced here. */}
+          {/* The section's min-height is load-bearing, not cosmetic: as a flex-1 child
+              in a column whose other sections are fixed height, this list is the only
+              thing that can shrink -- and below roughly 700px of viewport height it was
+              shrinking to exactly 0, so the rail showed "50 matches" above an empty gap. */}
           <ul
             className="mt-1 min-h-0 flex-1 overflow-y-auto"
             ref={listRef}
