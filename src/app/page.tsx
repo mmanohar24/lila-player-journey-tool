@@ -1,24 +1,22 @@
-import Link from "next/link";
-import { getMatchesIndex } from "@/lib/data";
+import { redirect } from "next/navigation";
+import { getDefaultMatchId } from "@/lib/data";
 
+/**
+ * The tool opens straight onto a match rather than an empty shell. PRD.md §8: default to
+ * one of the richer matches, since 743 of 796 have a single participant and landing on
+ * one of those would make the tool look broken on first load.
+ */
 export default function Home() {
-  const matches = getMatchesIndex();
-  const richestMatch = matches[0];
-
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-3 p-8 text-center">
-      <h1 className="text-heading">LILA Player Journey Visualization Tool</h1>
-      <p className="text-ui text-textSecondary w-full max-w-md">
-        Filters and a proper match picker land in a later build stage. For now,
-        here&apos;s the richest match in the dataset (
-        {richestMatch.participant_count} participants).
-      </p>
-      <Link
-        href={`/match/${richestMatch.match_id}`}
-        className="text-ui-emphasis text-human underline"
-      >
-        View {richestMatch.map_id} match &rarr;
-      </Link>
-    </main>
-  );
+  const matchId = getDefaultMatchId();
+  if (!matchId) {
+    return (
+      <main className="flex min-h-screen items-center justify-center p-8">
+        <p className="text-ui text-textSecondary">
+          No match data found. Run <code className="text-data">scripts/build_data.py</code> to
+          generate it.
+        </p>
+      </main>
+    );
+  }
+  redirect(`/match/${matchId}`);
 }

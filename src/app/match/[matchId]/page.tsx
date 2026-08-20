@@ -1,44 +1,63 @@
 import { notFound } from "next/navigation";
-import { getMapConfig, getMatch } from "@/lib/data";
+import { getMapConfig, getMapConfigs, getMatch, getPickerEntries } from "@/lib/data";
 import { MapViewport } from "@/components/MapViewport";
 import { MatchLayer } from "@/components/MatchLayer";
 import { Legend } from "@/components/Legend";
+import { FilterRail } from "@/components/FilterRail";
 
 interface PageProps {
   params: Promise<{ matchId: string }>;
+  searchParams: Promise<{ map?: string; date?: string }>;
 }
 
-export default async function MatchPage({ params }: PageProps) {
+export default async function MatchPage({ params, searchParams }: PageProps) {
   const { matchId } = await params;
+  const { map: mapFilter, date: dateFilter } = await searchParams;
+
   const match = getMatch(matchId);
   if (!match) notFound();
 
   const map = getMapConfig(match.map_id);
+  const entries = getPickerEntries();
+  const maps = Object.values(getMapConfigs()).map((m) => ({
+    id: m.id,
+    displayName: m.displayName,
+  }));
+  const dates = [...new Set(entries.map((e) => e.date))].sort();
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-background">
+      {/* The rail is rendered BEFORE the map so keyboard focus reaches the filters
+          first. It is absolutely positioned, so DOM order doesn't affect where it
+          appears -- but with the map first, tabbing had to cross ~37 journey and
+          event markers before arriving at the controls. */}
+      <div className="pointer-events-none absolute inset-0">
+        <FilterRail
+          entries={entries}
+          maps={maps}
+          dates={dates}
+          selectedMatchId={match.match_id}
+          map={mapFilter ?? "all"}
+          date={dateFilter ?? "all"}
+        >
+          <div className="shrink-0">
+            <h1 className="text-ui-emphasis text-textPrimary">{map.displayName}</h1>
+            <p className="text-ui text-textSecondary">
+              {match.date} · {match.participant_count} participant
+              {match.participant_count === 1 ? "" : "s"} ({match.human_count} human,{" "}
+              {match.bot_count} bot) · {match.events.length} events
+            </p>
+          </div>
+          <Legend match={match} />
+        </FilterRail>
+      </div>
+
       <MapViewport
         map={map}
         ariaLabel={`Interactive map: player paths and events on ${map.displayName} for match ${match.match_id}.`}
       >
         <MatchLayer match={match} map={map} />
       </MapViewport>
-
-      <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3">
-        <div className="pointer-events-auto w-fit max-w-sm rounded-md border border-border bg-surface/90 p-3 backdrop-blur-sm">
-          <h1 className="text-heading">{map.displayName}</h1>
-          <p className="text-ui text-textSecondary">
-            {match.date} · {match.participant_count} participants ({match.human_count} human,{" "}
-            {match.bot_count} bot) · {match.events.length} events
-          </p>
-          <p className="text-data text-textSecondary">match_id: {match.match_id}</p>
-        </div>
-
-        {/* Bottom-left, clear of the zoom controls in the bottom-right. */}
-        <div className="pointer-events-auto w-fit max-w-md">
-          <Legend match={match} />
-        </div>
-      </div>
     </main>
   );
 }

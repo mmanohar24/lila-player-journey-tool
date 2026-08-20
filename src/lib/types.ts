@@ -52,6 +52,19 @@ export interface MatchData {
   events: MatchEvent[];
 }
 
+/**
+ * Compact per-match row for the picker. The full index is ~128KB and carries fields the
+ * picker never reads; this projection is what gets serialised to the client so filtering
+ * can happen in-memory (instant) rather than round-tripping to the server per keystroke.
+ */
+export interface PickerEntry {
+  id: string;
+  map: MapId;
+  date: string;
+  /** Participant count -- the badge, and the sort key (PRD.md §8). */
+  n: number;
+}
+
 export interface MatchIndexEntry {
   match_id: string;
   map_id: MapId;
