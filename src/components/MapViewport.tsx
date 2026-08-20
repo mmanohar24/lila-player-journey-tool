@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MapConfig } from "@/lib/types";
+import { HeatmapCanvas } from "./HeatmapCanvas";
 
 interface ViewBox {
   x: number;
@@ -520,11 +521,28 @@ export function MapViewport({
       />
       <div aria-hidden="true" className="absolute inset-0 bg-background/35" />
 
+      {/* Aggregate density, drawn under the SVG so individual markers stay readable on
+          top of it. Canvas per design.md: a continuous gradient is raster content, not
+          discrete semantic data. */}
+      {/* The base map, the density raster and the markers are three stacked layers
+          sharing one viewBox, rather than a single SVG. The heatmap has to sit ABOVE
+          the (opaque) map image but BELOW the markers, and a canvas cannot live inside
+          an SVG -- with the image and markers in one SVG, the raster was painted and
+          then completely hidden behind the map. */}
+      <svg
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+        className="absolute inset-0 h-full w-full"
+        aria-hidden="true"
+      >
+        <image href={map.image} x={0} y={0} width={map.width} height={map.height} />
+      </svg>
+
+      <HeatmapCanvas map={map} viewBox={viewBox} />
+
       <svg
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
         className="relative block h-full w-full select-none"
       >
-        <image href={map.image} x={0} y={0} width={map.width} height={map.height} />
         {children}
       </svg>
 

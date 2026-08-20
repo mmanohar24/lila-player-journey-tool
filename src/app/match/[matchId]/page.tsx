@@ -6,6 +6,8 @@ import { MatchLayer } from "@/components/MatchLayer";
 import { Legend } from "@/components/Legend";
 import { FilterRail } from "@/components/FilterRail";
 import { PlaybackControls } from "@/components/PlaybackControls";
+import { HeatmapProvider } from "@/components/HeatmapContext";
+import { HeatmapControls } from "@/components/HeatmapControls";
 
 interface PageProps {
   params: Promise<{ matchId: string }>;
@@ -27,8 +29,12 @@ export default async function MatchPage({ params, searchParams }: PageProps) {
   }));
   const dates = [...new Set(entries.map((e) => e.date))].sort();
 
+  const dateKey = dateFilter ?? "all";
+  const dateLabel = dateFilter ? `on ${dateFilter}` : "all dates";
+
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-background">
+      <HeatmapProvider mapId={map.id} dateKey={dateKey}>
       {/* The rail is rendered BEFORE the map so keyboard focus reaches the filters
           first. It is absolutely positioned, so DOM order doesn't affect where it
           appears -- but with the map first, tabbing had to cross ~37 journey and
@@ -56,25 +62,27 @@ export default async function MatchPage({ params, searchParams }: PageProps) {
               {match.match_id}
             </p>
           </div>
-          <Legend match={match} />
-        </FilterRail>
-      </div>
-
-      {/* Bottom-centre, clear of the left rail and the bottom-right zoom controls. */}
-      <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center md:left-[344px] md:right-20">
-        <div className="w-full max-w-2xl">
-          <PlaybackControls key={match.match_id} eventCount={match.events.length} />
+            <Legend match={match} />
+            <HeatmapControls dateLabel={dateLabel} />
+          </FilterRail>
         </div>
-      </div>
 
-      <MapViewport
-        map={map}
-        focusBounds={pixelBounds(match.events, map) ?? undefined}
-        focusKey={match.match_id}
-        ariaLabel={`Interactive map: player paths and events on ${map.displayName} for match ${match.match_id}.`}
-      >
-        <MatchLayer match={match} map={map} />
-      </MapViewport>
+        {/* Bottom-centre, clear of the left rail and the bottom-right zoom controls. */}
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center md:left-[344px] md:right-20">
+          <div className="w-full max-w-2xl">
+            <PlaybackControls key={match.match_id} eventCount={match.events.length} />
+          </div>
+        </div>
+
+        <MapViewport
+          map={map}
+          focusBounds={pixelBounds(match.events, map) ?? undefined}
+          focusKey={match.match_id}
+          ariaLabel={`Interactive map: player paths and events on ${map.displayName} for match ${match.match_id}.`}
+        >
+          <MatchLayer match={match} map={map} />
+        </MapViewport>
+      </HeatmapProvider>
     </main>
   );
 }
