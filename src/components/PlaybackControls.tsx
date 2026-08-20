@@ -170,7 +170,10 @@ export function PlaybackControls({ eventCount }: PlaybackControlsProps) {
 
   return (
     <div className="pointer-events-auto flex flex-col gap-2 rounded-md border border-border bg-surface/90 p-3 backdrop-blur-sm">
-      <div className="flex items-center gap-3">
+      {/* Wraps rather than shrinking: on a 375px viewport the speed buttons were pushed
+          off the right edge, leaving 4x unreachable. The speed group drops to its own
+          line instead. */}
+      <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={togglePlay}
@@ -199,7 +202,7 @@ export function PlaybackControls({ eventCount }: PlaybackControlsProps) {
           step={0.001}
           value={progress}
           onChange={(e) => scrub(Number(e.target.value))}
-          className="playback-scrubber min-h-11 flex-1"
+          className="playback-scrubber min-h-11 w-full min-w-40 flex-1"
           // Drives the filled portion of the track (WebKit has no ::-moz-range-progress
           // equivalent, so the fill is painted as a gradient stop).
           style={{ "--playback-fill": progress } as React.CSSProperties}

@@ -136,14 +136,14 @@ export function FilterRail({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="filter-rail"
-        className="pointer-events-auto absolute left-3 top-3 z-20 min-h-11 rounded-sm border border-border bg-surfaceRaised px-3 text-ui-emphasis text-textPrimary md:hidden"
+        className="pointer-events-auto absolute left-3 top-3 z-40 min-h-11 rounded-sm border border-border bg-surfaceRaised px-3 text-ui-emphasis text-textPrimary md:hidden"
       >
         {open ? "Close" : "Filters & legend"}
       </button>
 
       <div
         id="filter-rail"
-        className={`pointer-events-auto absolute z-10 flex flex-col gap-5 overflow-y-auto rounded-md border border-border bg-surface/90 p-5 backdrop-blur-sm ${
+        className={`pointer-events-auto absolute z-30 flex flex-col gap-5 overflow-y-auto rounded-md border border-border bg-surface/90 p-5 backdrop-blur-sm ${
           // Mobile: bottom sheet, only when opened. Tablet+: persistent left rail.
           open ? "inset-x-3 bottom-3 top-16 flex" : "hidden"
         } md:left-3 md:top-3 md:bottom-3 md:right-auto md:flex md:w-[320px]`}

@@ -580,7 +580,7 @@ export function MapViewport({
         )}
       </div>
 
-      <div className="pointer-events-none absolute bottom-3 right-3 flex flex-col gap-1">
+      <div className="pointer-events-none absolute right-3 top-1/2 flex -translate-y-1/2 flex-col gap-1 md:top-auto md:bottom-3 md:translate-y-0">
         <button
           type="button"
           onClick={() => zoomBy(0.7)}
