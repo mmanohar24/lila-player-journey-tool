@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getMapConfig, getMapConfigs, getMatch, getPickerEntries } from "@/lib/data";
+import { pixelBounds } from "@/lib/coordinates";
 import { MapViewport } from "@/components/MapViewport";
 import { MatchLayer } from "@/components/MatchLayer";
 import { Legend } from "@/components/Legend";
@@ -40,12 +41,18 @@ export default async function MatchPage({ params, searchParams }: PageProps) {
           map={mapFilter ?? "all"}
           date={dateFilter ?? "all"}
         >
-          <div className="shrink-0">
-            <h1 className="text-ui-emphasis text-textPrimary">{map.displayName}</h1>
+          {/* Labelled "Now viewing" so selecting a match visibly updates a named
+              readout, rather than only changing the map behind the rail. */}
+          <div className="shrink-0 border-t border-border pt-5">
+            <p className="text-ui text-textSecondary">Now viewing</p>
+            <h1 className="text-heading text-textPrimary">{map.displayName}</h1>
             <p className="text-ui text-textSecondary">
               {match.date} · {match.participant_count} participant
               {match.participant_count === 1 ? "" : "s"} ({match.human_count} human,{" "}
               {match.bot_count} bot) · {match.events.length} events
+            </p>
+            <p className="text-data mt-1 truncate text-textSecondary" title={match.match_id}>
+              {match.match_id}
             </p>
           </div>
           <Legend match={match} />
@@ -54,6 +61,8 @@ export default async function MatchPage({ params, searchParams }: PageProps) {
 
       <MapViewport
         map={map}
+        focusBounds={pixelBounds(match.events, map) ?? undefined}
+        focusKey={match.match_id}
         ariaLabel={`Interactive map: player paths and events on ${map.displayName} for match ${match.match_id}.`}
       >
         <MatchLayer match={match} map={map} />

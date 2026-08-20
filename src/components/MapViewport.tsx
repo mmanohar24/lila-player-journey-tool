@@ -85,6 +85,40 @@ function zoomAt(
   return clampViewBox(worldX - fx * newW, worldY - fy * newH, newW, aspect, mapWidth, mapHeight);
 }
 
+/** Pixel-space bounding box of the content the view should frame. */
+export interface FocusBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/**
+ * A view framing `bounds` (with breathing room), at the container's aspect ratio.
+ *
+ * Without this, selecting a match just re-rendered the map at the same default framing:
+ * a sparse match's events often sit outside it entirely -- measured across single-
+ * participant matches, one had only 9% of its markers inside the default view -- so
+ * picking a match looked like nothing had happened.
+ */
+function boundsViewBox(
+  containerW: number,
+  containerH: number,
+  bounds: FocusBounds,
+  mapWidth: number,
+  mapHeight: number
+): ViewBox {
+  const aspect = containerH / containerW;
+  const bw = Math.max(bounds.maxX - bounds.minX, 1);
+  const bh = Math.max(bounds.maxY - bounds.minY, 1);
+  const pad = 1.25;
+  // Whichever axis needs more room decides the zoom, so nothing is cropped.
+  const w = Math.max(bw, bh / aspect) * pad;
+  const cx = (bounds.minX + bounds.maxX) / 2;
+  const cy = (bounds.minY + bounds.maxY) / 2;
+  return clampViewBox(cx - w / 2, cy - (w * aspect) / 2, w, aspect, mapWidth, mapHeight);
+}
+
 interface Tooltip {
   title: string;
   sub?: string;
@@ -111,10 +145,20 @@ function readTooltipTarget(target: EventTarget | null): Omit<Tooltip, "x" | "y">
 interface MapViewportProps {
   map: MapConfig;
   ariaLabel: string;
+  /** Frame this region on load and on reset -- normally the selected match's events. */
+  focusBounds?: FocusBounds;
+  /** Changing this re-frames the view (i.e. when a different match is selected). */
+  focusKey?: string;
   children: React.ReactNode;
 }
 
-export function MapViewport({ map, ariaLabel, children }: MapViewportProps) {
+export function MapViewport({
+  map,
+  ariaLabel,
+  focusBounds,
+  focusKey,
+  children,
+}: MapViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
@@ -131,26 +175,36 @@ export function MapViewport({ map, ariaLabel, children }: MapViewportProps) {
     viewBoxRef.current = viewBox;
   }, [viewBox]);
 
+  /** The view this match should open at: framed on its events when we know where they
+   *  are, otherwise the whole-map cover fit. */
+  const defaultViewBox = useCallback(
+    (w: number, h: number) =>
+      focusBounds
+        ? boundsViewBox(w, h, focusBounds, map.width, map.height)
+        : coverViewBox(w, h, map.width, map.height),
+    [focusBounds, map.width, map.height]
+  );
+
   const resetView = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
     setViewBox(
-      rect && rect.width > 0 && rect.height > 0
-        ? coverViewBox(rect.width, rect.height, map.width, map.height)
-        : fitViewBox
+      rect && rect.width > 0 && rect.height > 0 ? defaultViewBox(rect.width, rect.height) : fitViewBox
     );
-  }, [map.width, map.height, fitViewBox]);
+  }, [defaultViewBox, fitViewBox]);
 
-  // Default to "cover" (fills the viewport, no letterbox bars) rather than the whole
-  // map, computed from the container's real aspect ratio. useLayoutEffect (not
-  // useEffect) so this resolves before the first paint -- no flash of the wrong fit.
-  const hasSetInitialView = useRef(false);
+  // Re-frame whenever the focused match changes -- not just once on mount, since
+  // navigating between matches reuses this component rather than remounting it.
+  // useLayoutEffect (not useEffect) so it resolves before paint: no flash of the
+  // previous match's framing.
+  const appliedFocus = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (hasSetInitialView.current) return;
+    const key = focusKey ?? "";
+    if (appliedFocus.current === key) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
-    setViewBox(coverViewBox(rect.width, rect.height, map.width, map.height));
-    hasSetInitialView.current = true;
-  }, [map.width, map.height]);
+    setViewBox(defaultViewBox(rect.width, rect.height));
+    appliedFocus.current = key;
+  }, [focusKey, defaultViewBox]);
 
   const pointers = useRef<Map<number, Point>>(new Map());
   const dragState = useRef<{ startClientX: number; startClientY: number; startVB: ViewBox } | null>(null);

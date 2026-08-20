@@ -13,6 +13,26 @@ export interface PixelPosition {
  * than assuming a shared square side length, since GrandRift measures 2160x2158,
  * not perfectly square.
  */
+/** Pixel-space bounding box of a set of world coordinates, for framing the view. */
+export function pixelBounds(
+  points: { x: number; z: number }[],
+  map: MapConfig
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  if (points.length === 0) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of points) {
+    const { px, py } = worldToPixel(p.x, p.z, map);
+    if (px < minX) minX = px;
+    if (px > maxX) maxX = px;
+    if (py < minY) minY = py;
+    if (py > maxY) maxY = py;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
 export function worldToPixel(x: number, z: number, map: MapConfig): PixelPosition {
   const u = (x - map.originX) / map.scale;
   const v = (z - map.originZ) / map.scale;

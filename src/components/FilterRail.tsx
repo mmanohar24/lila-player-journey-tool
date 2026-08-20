@@ -56,8 +56,10 @@ export function FilterRail({
     router.push(buildHref(keep ? selectedMatchId : next[0].id, nextMap, nextDate));
   };
 
+  // px-3 (not px-2) so the value isn't crowded against the control's own border, and
+  // mt-1 to separate it from its label -- design.md's `spacing` steps, not arbitrary.
   const selectClass =
-    "min-h-11 w-full rounded-sm border border-border bg-surfaceRaised px-2 text-ui text-textPrimary";
+    "mt-1 min-h-11 w-full rounded-sm border border-border bg-surfaceRaised px-3 text-ui text-textPrimary";
 
   return (
     <>
@@ -75,7 +77,7 @@ export function FilterRail({
 
       <div
         id="filter-rail"
-        className={`pointer-events-auto absolute z-10 flex flex-col gap-3 overflow-y-auto rounded-md border border-border bg-surface/90 p-3 backdrop-blur-sm ${
+        className={`pointer-events-auto absolute z-10 flex flex-col gap-5 overflow-y-auto rounded-md border border-border bg-surface/90 p-5 backdrop-blur-sm ${
           // Mobile: bottom sheet, only when opened. Tablet+: persistent left rail.
           open ? "inset-x-3 bottom-3 top-16 flex" : "hidden"
         } md:left-3 md:top-3 md:bottom-3 md:right-auto md:flex md:w-[320px]`}
