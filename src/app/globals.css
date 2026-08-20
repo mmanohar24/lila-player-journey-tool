@@ -148,6 +148,67 @@ body {
   }
 }
 
+/* While the timeline is mid-playback the full route stays visible but faint, so the
+   revealed events read as "what has happened so far" against the whole route. */
+.match-layer.is-playing polyline:not(.journey-halo) {
+  stroke-opacity: 0.12;
+}
+
+/* Playback scrubber, per design.md's `playbackScrubber` component tokens: track in
+   `border`, fill in `human` (a UI-state colour here, not a data colour), pill radius.
+   The input is 44px tall so the drag target meets the 44px minimum even though the
+   thumb itself is drawn smaller -- a literally 44px-wide thumb would cover a large
+   slice of the track and make precise scrubbing harder, which is the opposite of what
+   the touch-target rule is for. */
+.playback-scrubber {
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.playback-scrubber::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--color-human) 0%,
+    var(--color-human) calc(var(--playback-fill, 0) * 100%),
+    var(--color-border) calc(var(--playback-fill, 0) * 100%),
+    var(--color-border) 100%
+  );
+}
+
+.playback-scrubber::-moz-range-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+}
+
+.playback-scrubber::-moz-range-progress {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-human);
+}
+
+.playback-scrubber::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-human);
+  border: 2px solid var(--color-background);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.45);
+}
+
+.playback-scrubber::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--color-human);
+  border: 2px solid var(--color-background);
+}
+
 /* Player journeys are focusable too (one stop per player, not per position sample),
    so a keyboard user can enumerate who was in the match. Same halo technique as the
    event markers above, since `outline` on an SVG <g> is unreliable. */

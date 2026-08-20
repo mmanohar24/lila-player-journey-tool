@@ -33,6 +33,17 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
   const minT = Math.min(...times);
   const maxT = Math.max(...times);
 
+  /**
+   * Normalized position in the match, 0..1, stamped onto every revealable element as
+   * `data-p` so PlaybackControls can reveal them in order without React re-rendering
+   * ~1000 SVG nodes per frame.
+   *
+   * Relative spacing is preserved rather than events being spread evenly: measured
+   * across matches, the inter-event gap CV is ~0.63 (p90 ~1.03), so bursts and lulls
+   * are real signal. Only the axis is rescaled -- see PRD.md §6.
+   */
+  const frac = (t: number) => (maxT === minT ? 0 : (t - minT) / (maxT - minT));
+
   // Group events per player so each player gets one continuous journey path. Events
   // arrive already sorted by ts from the pipeline, so per-player order is preserved.
   const eventsByPlayer = match.players.map(() => [] as typeof match.events);
@@ -127,6 +138,7 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
               return (
                 <circle
                   key={i}
+                  data-p={frac(ev.t)}
                   cx={px}
                   cy={py}
                   r={positionRadius}
@@ -143,6 +155,7 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
             {events.length > 1 && (
               <EventMarkerShape
                 shape="ring"
+                dataP={frac(first.t)}
                 cx={start.px}
                 cy={start.py}
                 r={positionRadius * 3.2}
@@ -154,6 +167,7 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
             {events.length > 1 && !endsInDeath && (
               <EventMarkerShape
                 shape="bullseye"
+                dataP={frac(last.t)}
                 cx={end.px}
                 cy={end.py}
                 r={positionRadius * 3.2}
@@ -183,6 +197,7 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
             aria-label={label}
             tabIndex={0}
             className="marker"
+            data-p={frac(ev.t)}
             data-tt-title={eventPhrase(ev.e, player.is_bot).short}
             /* Name the role ("Victim:" / "Killer:") rather than just the id: a bare
                "Death (by a bot)" above a human's UUID reads as though the bot died,

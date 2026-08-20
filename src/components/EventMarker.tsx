@@ -10,6 +10,8 @@ interface MarkerShapeProps {
   opacity: number;
   /** Stroke width for the `cross` shape, which is drawn rather than filled. */
   strokeWidth: number;
+  /** Normalized position in the match (0..1), read by playback to reveal in order. */
+  dataP?: number;
 }
 
 /**
@@ -24,6 +26,7 @@ export function EventMarkerShape({
   color,
   opacity,
   strokeWidth,
+  dataP,
 }: MarkerShapeProps) {
   switch (shape) {
     case "circle":
@@ -65,7 +68,7 @@ export function EventMarkerShape({
     // so it reads as a distinct object -- the same trick as a halo/casing on map labels.
     case "ring":
       return (
-        <g>
+        <g data-p={dataP} data-endpoint="">
           <circle
             cx={cx}
             cy={cy}
@@ -89,7 +92,7 @@ export function EventMarkerShape({
 
     case "bullseye":
       return (
-        <g>
+        <g data-p={dataP} data-endpoint="">
           <circle
             cx={cx}
             cy={cy}

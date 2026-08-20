@@ -5,6 +5,7 @@ import { MapViewport } from "@/components/MapViewport";
 import { MatchLayer } from "@/components/MatchLayer";
 import { Legend } from "@/components/Legend";
 import { FilterRail } from "@/components/FilterRail";
+import { PlaybackControls } from "@/components/PlaybackControls";
 
 interface PageProps {
   params: Promise<{ matchId: string }>;
@@ -57,6 +58,13 @@ export default async function MatchPage({ params, searchParams }: PageProps) {
           </div>
           <Legend match={match} />
         </FilterRail>
+      </div>
+
+      {/* Bottom-centre, clear of the left rail and the bottom-right zoom controls. */}
+      <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center md:left-[344px] md:right-20">
+        <div className="w-full max-w-2xl">
+          <PlaybackControls key={match.match_id} eventCount={match.events.length} />
+        </div>
       </div>
 
       <MapViewport
