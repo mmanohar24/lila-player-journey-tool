@@ -38,6 +38,8 @@ export function PlaybackControls({ eventCount }: PlaybackControlsProps) {
   const [progress, setProgress] = useState(1); // 1 = whole match shown (the static view)
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<number>(1);
+  /** Mobile only: the speed buttons are collapsed behind a toggle to save a row. */
+  const [speedsOpen, setSpeedsOpen] = useState(false);
   const [shownCount, setShownCount] = useState(eventCount);
 
   const itemsRef = useRef<Revealable[]>([]);
@@ -169,11 +171,13 @@ export function PlaybackControls({ eventCount }: PlaybackControlsProps) {
   const percent = Math.round(progress * 100);
 
   return (
-    <div className="pointer-events-auto flex flex-col gap-2 rounded-md border border-border bg-surface/90 p-3 backdrop-blur-sm">
-      {/* Wraps rather than shrinking: on a 375px viewport the speed buttons were pushed
-          off the right edge, leaving 4x unreachable. The speed group drops to its own
-          line instead. */}
-      <div className="flex flex-wrap items-center gap-3">
+    /* On a phone this panel was 175px tall -- 26% of the viewport, and 51% in landscape
+       -- because the speed buttons and a two-line caption each took a row. Everything
+       now fits one row on small screens: the caption is hidden visually (it still
+       reaches assistive tech through the paragraph's aria-label) and the speeds sit
+       behind a disclosure. From `sm` up the full layout returns. */
+    <div className="pointer-events-auto flex flex-col gap-2 rounded-md border border-border bg-surface/90 p-2 backdrop-blur-sm sm:gap-2 sm:p-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={togglePlay}
@@ -202,7 +206,10 @@ export function PlaybackControls({ eventCount }: PlaybackControlsProps) {
           step={0.001}
           value={progress}
           onChange={(e) => scrub(Number(e.target.value))}
-          className="playback-scrubber min-h-11 w-full min-w-40 flex-1"
+          // A minimum width so that, when space runs short, the speed group wraps to the
+          // next line rather than squeezing the scrubber (it collapsed to 58px at
+          // tablet width, which is not draggable).
+          className="playback-scrubber min-h-11 min-w-32 flex-1"
           // Drives the filled portion of the track (WebKit has no ::-moz-range-progress
           // equivalent, so the fill is painted as a gradient stop).
           style={{ "--playback-fill": progress } as React.CSSProperties}
@@ -210,12 +217,44 @@ export function PlaybackControls({ eventCount }: PlaybackControlsProps) {
           aria-valuetext={`${percent}% through the match`}
         />
 
-        <div className="flex shrink-0 gap-1" role="group" aria-label="Playback speed">
+        {/* Compact progress figure, so the row still reports position once the full
+            caption below is hidden on small screens. */}
+        <span aria-hidden="true" className="text-data shrink-0 text-textPrimary sm:hidden">
+          {`${percent}%`}
+        </span>
+
+        {/* Speeds stay inline from `sm` up; on a phone they collapse behind this
+            toggle rather than claiming a whole row of a 660px-tall screen. */}
+        <button
+          type="button"
+          onClick={() => setSpeedsOpen((v) => !v)}
+          aria-expanded={speedsOpen}
+          aria-controls="playback-speeds"
+          aria-label={`Playback speed: ${speed === 0.5 ? "half" : speed} times. Change speed.`}
+          className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-sm border border-border bg-surfaceRaised px-3 text-ui text-textPrimary sm:hidden"
+        >
+          <span aria-hidden="true">{`${speed}×`}</span>
+        </button>
+
+        {/* `basis-full` so that, when opened on a phone, the speeds wrap onto their own
+            line instead of competing with the scrubber and squeezing it to nothing.
+            From `sm` they sit inline again. */}
+        <div
+          id="playback-speeds"
+          className={`shrink-0 basis-full gap-1 sm:basis-auto ${
+            speedsOpen ? "flex" : "hidden"
+          } sm:flex`}
+          role="group"
+          aria-label="Playback speed"
+        >
           {SPEEDS.map((s) => (
             <button
               key={s}
               type="button"
-              onClick={() => setSpeed(s)}
+              onClick={() => {
+                setSpeed(s);
+                setSpeedsOpen(false);
+              }}
               aria-pressed={speed === s}
               // Spoken as "half speed" / "2 times speed" rather than the visual glyph,
               // which a screen reader otherwise splits into "0.5" and "times".
@@ -239,8 +278,12 @@ export function PlaybackControls({ eventCount }: PlaybackControlsProps) {
           The emphasised figures are separate elements for styling, which a screen
           reader would otherwise chunk mid-sentence, so the paragraph carries the whole
           sentence as its accessible name and the visual parts are hidden from it. */}
+      {/* Hidden visually below `sm` only -- `sr-only` keeps it in the accessibility tree,
+          so the "normalized progress, not elapsed time" caveat (PRD.md §6) is never
+          dropped for a screen reader, just for a 393px-wide screen where it cost two
+          lines. The compact % in the row above carries it visually. */}
       <p
-        className="text-ui text-textSecondary"
+        className="sr-only text-ui text-textSecondary sm:not-sr-only [@media(max-height:430px)]:sr-only"
         aria-label={`${percent}% through match. ${shownCount} of ${eventCount} events shown. Normalized progress, not elapsed time.`}
       >
         <span aria-hidden="true">

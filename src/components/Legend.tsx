@@ -131,10 +131,15 @@ export function Legend({ match }: { match: MatchData }) {
       </h2>
 
       {groups.map((group, i) => (
+        /* A grid, not a wrapping flex row. Wrapping broke wherever it ran out of width,
+           orphaning entries ("Storm death 0" and "Loot 7" alone on a line) with nothing
+           lining up. Two fixed columns align every label and count, and cost about half
+           the height a single column would in an already-scrolling drawer -- verified at
+           393px that no entry overflows or wraps. */
         <ul
           key={group.label}
           aria-label={group.label}
-          className={`flex flex-wrap gap-x-5 gap-y-2 ${
+          className={`grid grid-cols-2 gap-x-4 gap-y-2 ${
             i > 0 ? "mt-2 border-t border-border pt-2" : ""
           }`}
         >
