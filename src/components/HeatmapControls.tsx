@@ -41,13 +41,18 @@ export function HeatmapControls({ dateLabel }: { dateLabel: string }) {
   const summary: HeatmapLayerData | null = layer ? file?.dates?.[dateKey]?.[layer] ?? null : null;
 
   return (
-    <div className="shrink-0 border-t border-border pt-5">
-      <h2 className="text-ui-emphasis text-textPrimary">Density heatmap</h2>
+    <section
+      aria-labelledby="heatmap-heading"
+      className="shrink-0 border-t border-border pt-5"
+    >
+      <h2 id="heatmap-heading" className="text-ui-emphasis text-textPrimary">
+        Density heatmap
+      </h2>
       {/* PRD.md §5: the heatmap aggregates every match on this map within the date
           filter and is deliberately NOT limited to the selected match -- one match
           carries too few combat events to be a density surface. */}
       <p className="text-ui mt-1 text-textSecondary">
-        All matches on this map, {dateLabel}. Not limited to the selected match.
+        {`All matches on this map, ${dateLabel}. Not limited to the selected match.`}
       </p>
 
       <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label="Heatmap layer">
@@ -98,6 +103,6 @@ export function HeatmapControls({ dateLabel }: { dateLabel: string }) {
           )}
         </p>
       )}
-    </div>
+    </section>
   );
 }

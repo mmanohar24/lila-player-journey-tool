@@ -10,25 +10,39 @@ interface LegendEntry {
   opacity?: number;
 }
 
+/**
+ * One legend row.
+ *
+ * The label and its count are visually two elements (the count is monospace), and React
+ * additionally emits a `<!-- -->` separator between adjacent expressions. A screen reader
+ * chunks on both, which split "Human 1" apart and ran the stray count into the next row
+ * ("1 Bot 14"). Naming the row explicitly and hiding its innards makes it announce as a
+ * single phrase while looking exactly the same.
+ */
 function Swatch({ entry }: { entry: LegendEntry }) {
   const absent = entry.count === 0;
   return (
-    <span className={`flex items-center gap-2 ${absent ? "opacity-40" : ""}`}>
-      <svg width={14} height={14} viewBox="0 0 14 14" aria-hidden="true" className="shrink-0">
-        <EventMarkerShape
-          shape={entry.shape}
-          cx={7}
-          cy={7}
-          r={5}
-          color={entry.color}
-          opacity={entry.opacity ?? 1}
-          strokeWidth={2}
-        />
-      </svg>
-      <span className="text-ui text-textSecondary">
-        {entry.label} <span className="text-data">{entry.count}</span>
+    <li
+      className={`flex items-center gap-2 ${absent ? "opacity-40" : ""}`}
+      aria-label={`${entry.label}: ${entry.count}`}
+    >
+      <span aria-hidden="true" className="flex items-center gap-2">
+        <svg width={14} height={14} viewBox="0 0 14 14" className="shrink-0">
+          <EventMarkerShape
+            shape={entry.shape}
+            cx={7}
+            cy={7}
+            r={5}
+            color={entry.color}
+            opacity={entry.opacity ?? 1}
+            strokeWidth={2}
+          />
+        </svg>
+        <span className="text-ui text-textSecondary">
+          {entry.label} <span className="text-data">{entry.count}</span>
+        </span>
       </span>
-    </span>
+    </li>
   );
 }
 
@@ -98,27 +112,37 @@ export function Legend({ match }: { match: MatchData }) {
     },
   ];
 
+  // Each group is a real list, and the panel is a labelled region: without either, a
+  // screen reader entering the legend announced nothing about where it had arrived and
+  // read the rows as loose text rather than as discrete items.
+  const groups: { label: string; entries: LegendEntry[] }[] = [
+    { label: "Participants", entries: playerEntries },
+    { label: "Event types", entries: eventEntries },
+    { label: "Journey endpoints", entries: journeyEntries },
+  ];
+
   return (
-    <div className="rounded-md border border-border bg-surface/90 p-3 backdrop-blur-sm">
-      <h2 className="text-ui-emphasis mb-2 text-textPrimary">Legend</h2>
+    <section
+      aria-labelledby="legend-heading"
+      className="rounded-md border border-border bg-surface/90 p-3 backdrop-blur-sm"
+    >
+      <h2 id="legend-heading" className="text-ui-emphasis mb-2 text-textPrimary">
+        Legend
+      </h2>
 
-      <div className="flex flex-wrap gap-x-5 gap-y-2">
-        {playerEntries.map((entry) => (
-          <Swatch key={entry.label} entry={entry} />
-        ))}
-      </div>
-
-      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-2">
-        {eventEntries.map((entry) => (
-          <Swatch key={entry.label} entry={entry} />
-        ))}
-      </div>
-
-      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-2">
-        {journeyEntries.map((entry) => (
-          <Swatch key={entry.label} entry={entry} />
-        ))}
-      </div>
-    </div>
+      {groups.map((group, i) => (
+        <ul
+          key={group.label}
+          aria-label={group.label}
+          className={`flex flex-wrap gap-x-5 gap-y-2 ${
+            i > 0 ? "mt-2 border-t border-border pt-2" : ""
+          }`}
+        >
+          {group.entries.map((entry) => (
+            <Swatch key={entry.label} entry={entry} />
+          ))}
+        </ul>
+      ))}
+    </section>
   );
 }

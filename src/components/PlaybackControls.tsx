@@ -217,13 +217,16 @@ export function PlaybackControls({ eventCount }: PlaybackControlsProps) {
               type="button"
               onClick={() => setSpeed(s)}
               aria-pressed={speed === s}
+              // Spoken as "half speed" / "2 times speed" rather than the visual glyph,
+              // which a screen reader otherwise splits into "0.5" and "times".
+              aria-label={s === 0.5 ? "Half speed" : `${s} times speed`}
               className={`h-11 min-w-11 rounded-sm border border-border px-2 text-ui ${
                 speed === s
                   ? "bg-surfaceRaised text-textPrimary"
                   : "bg-transparent text-textSecondary"
               }`}
             >
-              {s}&times;
+              <span aria-hidden="true">{`${s}×`}</span>
             </button>
           ))}
         </div>
@@ -231,11 +234,21 @@ export function PlaybackControls({ eventCount }: PlaybackControlsProps) {
 
       {/* Numeric readout doubles as the non-colour-dependent progress indicator
           (PRD.md §9.5), and names the axis as normalized rather than elapsed time --
-          per-match ts spans are ~65-880ms, so a mm:ss clock would be a fiction. */}
-      <p className="text-ui text-textSecondary">
-        <span className="text-data text-textPrimary">{percent}%</span> through match ·{" "}
-        <span className="text-data">{shownCount}</span>/{eventCount} events shown ·
-        normalized progress, not elapsed time
+          per-match ts spans are ~65-880ms, so a mm:ss clock would be a fiction.
+
+          The emphasised figures are separate elements for styling, which a screen
+          reader would otherwise chunk mid-sentence, so the paragraph carries the whole
+          sentence as its accessible name and the visual parts are hidden from it. */}
+      <p
+        className="text-ui text-textSecondary"
+        aria-label={`${percent}% through match. ${shownCount} of ${eventCount} events shown. Normalized progress, not elapsed time.`}
+      >
+        <span aria-hidden="true">
+          <span className="text-data text-textPrimary">{`${percent}%`}</span>
+          {` through match · `}
+          <span className="text-data">{`${shownCount}/${eventCount}`}</span>
+          {` events shown · normalized progress, not elapsed time`}
+        </span>
       </p>
     </div>
   );

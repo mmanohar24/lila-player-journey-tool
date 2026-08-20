@@ -193,9 +193,13 @@ export function FilterRail({
             overflowed its parent and painted over the panels below. Constraining the
             section makes the rail scroll instead. */}
         <div className="flex min-h-[252px] flex-1 flex-col">
-          <p className="text-ui text-textSecondary">
-            {filtered.length} match{filtered.length === 1 ? "" : "es"}
-            {filtered.length > 0 && " · most participants first"}
+          {/* One string, not interleaved expressions: React separates adjacent
+              expressions with `<!-- -->`, which a screen reader treats as a break and
+              reads as fragments ("796", "match", "es"). */}
+          <p id="match-count" className="text-ui text-textSecondary">
+            {`${filtered.length} ${filtered.length === 1 ? "match" : "matches"}${
+              filtered.length > 0 ? " · most participants first" : ""
+            }`}
           </p>
 
           {/* The sparsity is real and worth seeing rather than engineering away
@@ -214,6 +218,7 @@ export function FilterRail({
             ref={listRef}
             role="listbox"
             aria-label="Matches"
+            aria-describedby="match-count"
             onKeyDown={handleListKeyDown}
           >
             {filtered.map((e, i) => {

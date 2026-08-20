@@ -33,6 +33,12 @@ export function MatchView({ match, mapFilter, dateFilter }: MatchViewProps) {
   const dateKey = dateFilter ?? "all";
   const dateLabel = dateFilter ? `on ${dateFilter}` : "all dates";
 
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const summary =
+    `${match.date} · ${plural(match.participant_count, "participant")} ` +
+    `(${match.human_count} human, ${match.bot_count} bot) · ` +
+    `${plural(match.events.length, "event")}`;
+
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-background">
       {/* A skip link is the standard escape hatch for a keyboard user who does not want
@@ -59,19 +65,25 @@ export function MatchView({ match, mapFilter, dateFilter }: MatchViewProps) {
             date={dateFilter ?? "all"}
           >
             {/* Labelled "Now viewing" so selecting a match visibly updates a named
-                readout, rather than only changing the map behind the rail. */}
-            <div className="shrink-0 border-t border-border pt-5">
-              <p className="text-ui text-textSecondary">Now viewing</p>
-              <h1 className="text-heading text-textPrimary">{map.displayName}</h1>
-              <p className="text-ui text-textSecondary">
-                {match.date} · {match.participant_count} participant
-                {match.participant_count === 1 ? "" : "s"} ({match.human_count} human,{" "}
-                {match.bot_count} bot) · {match.events.length} events
+                readout, rather than only changing the map behind the rail.
+
+                The summary is built as one string rather than interleaved JSX
+                expressions: React inserts a `<!-- -->` separator between adjacent
+                expressions, and a screen reader chunks on those, so this line was being
+                read as several broken fragments instead of one sentence. */}
+            <section
+              aria-labelledby="now-viewing-heading"
+              className="shrink-0 border-t border-border pt-5"
+            >
+              <p id="now-viewing-heading" className="text-ui text-textSecondary">
+                Now viewing
               </p>
+              <h1 className="text-heading text-textPrimary">{map.displayName}</h1>
+              <p className="text-ui text-textSecondary">{summary}</p>
               <p className="text-data mt-1 truncate text-textSecondary" title={match.match_id}>
                 {match.match_id}
               </p>
-            </div>
+            </section>
             <Legend match={match} />
             <HeatmapControls dateLabel={dateLabel} />
           </FilterRail>
