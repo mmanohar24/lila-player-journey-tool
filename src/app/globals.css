@@ -123,6 +123,31 @@ body {
   opacity: 1;
 }
 
+/* Entrance for a newly selected match's markers.
+   The viewBox glide (MapViewport.animateTo) is only visible for in-place changes such
+   as the reset button: selecting a match is a route change, and React prepares the new
+   page tree off-screen before swapping it in, so an animation started on mount plays
+   while still hidden. A CSS animation on the committed elements does survive that swap,
+   so the new match visibly draws itself in rather than blinking into place. */
+@keyframes match-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.match-layer {
+  animation: match-enter 380ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-layer {
+    animation: none;
+  }
+}
+
 /* Player journeys are focusable too (one stop per player, not per position sample),
    so a keyboard user can enumerate who was in the match. Same halo technique as the
    event markers above, since `outline` on an SVG <g> is unreliable. */

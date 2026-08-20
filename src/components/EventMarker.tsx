@@ -59,6 +59,35 @@ export function EventMarkerShape({
         />
       );
 
+    case "ring":
+      return (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeOpacity={opacity}
+          strokeWidth={strokeWidth}
+        />
+      );
+
+    case "bullseye":
+      return (
+        <g>
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeOpacity={opacity}
+            strokeWidth={strokeWidth}
+          />
+          <circle cx={cx} cy={cy} r={r * 0.4} fill={color} fillOpacity={opacity} />
+        </g>
+      );
+
     case "cross":
       return (
         <path

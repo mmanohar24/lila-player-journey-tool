@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PickerEntry } from "@/lib/types";
 
@@ -136,7 +137,10 @@ export function FilterRail({
               const active = e.id === selectedMatchId;
               return (
                 <li key={e.id}>
-                  <a
+                  {/* next/link, not a bare <a>: a plain anchor triggers a full document
+                      reload on every match selection, which throws away the client
+                      runtime (and any in-flight view transition) each time. */}
+                  <Link
                     href={buildHref(e.id, map, date)}
                     aria-current={active ? "true" : undefined}
                     className={`flex min-h-11 items-center gap-2 rounded-sm px-2 text-ui ${
@@ -155,7 +159,7 @@ export function FilterRail({
                     <span className="ml-auto shrink-0 text-ui text-textSecondary">
                       {e.date.slice(5)}
                     </span>
-                  </a>
+                  </Link>
                 </li>
               );
             })}

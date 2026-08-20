@@ -142,6 +142,14 @@ function readTooltipTarget(target: EventTarget | null): Omit<Tooltip, "x" | "y">
   };
 }
 
+/**
+ * Last framing rendered, kept at module scope so it survives the remount that a route
+ * change causes. Selecting a match navigates to a new page, which tears this component
+ * down and builds a new one -- without this, every match change looked like a first
+ * paint and jumped straight to the new framing instead of gliding to it.
+ */
+let lastFraming: { mapId: string; viewBox: ViewBox } | null = null;
+
 interface MapViewportProps {
   map: MapConfig;
   ariaLabel: string;
@@ -173,7 +181,8 @@ export function MapViewport({
   const viewBoxRef = useRef(viewBox);
   useEffect(() => {
     viewBoxRef.current = viewBox;
-  }, [viewBox]);
+    lastFraming = { mapId: map.id, viewBox };
+  }, [viewBox, map.id]);
 
   /** The view this match should open at: framed on its events when we know where they
    *  are, otherwise the whole-map cover fit. */
@@ -185,26 +194,90 @@ export function MapViewport({
     [focusBounds, map.width, map.height]
   );
 
+  /** Eases the view to `target`. Selecting a match used to snap the framing instantly,
+   *  which gave no sense that the map had moved somewhere; gliding there lets the eye
+   *  follow. Honours prefers-reduced-motion by jumping straight to the target. */
+  const animationRef = useRef<number | null>(null);
+
+  /** Any direct manipulation cancels an in-flight glide, so the animation never fights
+   *  the user's own drag or zoom. */
+  const stopAnimation = useCallback(() => {
+    if (animationRef.current !== null) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+  }, []);
+
+  const animateTo = useCallback((target: ViewBox) => {
+    if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
+
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      setViewBox(target);
+      return;
+    }
+
+    const from = viewBoxRef.current;
+    const start = performance.now();
+    const DURATION = 420;
+    const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+    const step = (now: number) => {
+      const p = Math.min((now - start) / DURATION, 1);
+      const e = easeInOut(p);
+      setViewBox({
+        x: from.x + (target.x - from.x) * e,
+        y: from.y + (target.y - from.y) * e,
+        w: from.w + (target.w - from.w) * e,
+        h: from.h + (target.h - from.h) * e,
+      });
+      if (p < 1) animationRef.current = requestAnimationFrame(step);
+      else animationRef.current = null;
+    };
+    animationRef.current = requestAnimationFrame(step);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
+    },
+    []
+  );
+
   const resetView = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
-    setViewBox(
+    animateTo(
       rect && rect.width > 0 && rect.height > 0 ? defaultViewBox(rect.width, rect.height) : fitViewBox
     );
-  }, [defaultViewBox, fitViewBox]);
+  }, [animateTo, defaultViewBox, fitViewBox]);
 
   // Re-frame whenever the focused match changes -- not just once on mount, since
   // navigating between matches reuses this component rather than remounting it.
-  // useLayoutEffect (not useEffect) so it resolves before paint: no flash of the
-  // previous match's framing.
   const appliedFocus = useRef<string | null>(null);
   useLayoutEffect(() => {
     const key = focusKey ?? "";
     if (appliedFocus.current === key) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
-    setViewBox(defaultViewBox(rect.width, rect.height));
+    const target = defaultViewBox(rect.width, rect.height);
+
+    if (appliedFocus.current !== null) {
+      // Same component instance, different match.
+      animateTo(target);
+    } else if (lastFraming && lastFraming.mapId === map.id) {
+      // Fresh mount after a route change, still on the same map: resume from where the
+      // previous match left off so the move reads as one continuous glide.
+      viewBoxRef.current = lastFraming.viewBox;
+      setViewBox(lastFraming.viewBox);
+      animateTo(target);
+    } else {
+      // Genuine first paint, or a switch to a different map -- nothing to glide from.
+      setViewBox(target);
+    }
     appliedFocus.current = key;
-  }, [focusKey, defaultViewBox]);
+  }, [focusKey, defaultViewBox, animateTo, map.id]);
 
   const pointers = useRef<Map<number, Point>>(new Map());
   const dragState = useRef<{ startClientX: number; startClientY: number; startVB: ViewBox } | null>(null);
@@ -214,11 +287,12 @@ export function MapViewport({
     (factor: number) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
+      stopAnimation();
       setViewBox((prev) =>
         zoomAt(prev, map.width, map.height, factor, rect.left + rect.width / 2, rect.top + rect.height / 2, rect)
       );
     },
-    [map.width, map.height]
+    [map.width, map.height, stopAnimation]
   );
 
   // Native (non-passive) wheel listener: React's onWheel is passive by default, which
@@ -229,6 +303,7 @@ export function MapViewport({
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
+      stopAnimation();
       const rect = el.getBoundingClientRect();
       const factor = Math.pow(1.0015, e.deltaY);
       setViewBox((prev) => zoomAt(prev, map.width, map.height, factor, e.clientX, e.clientY, rect));
@@ -236,7 +311,7 @@ export function MapViewport({
 
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => el.removeEventListener("wheel", handleWheel);
-  }, [map.width, map.height]);
+  }, [map.width, map.height, stopAnimation]);
 
   /** Places the tooltip near a point, flipping it away from the container's edges so it
    *  never spills outside the viewport. Measures the real rendered box rather than
@@ -286,6 +361,7 @@ export function MapViewport({
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     setTooltip(null);
+    stopAnimation();
     try {
       (e.target as Element).setPointerCapture(e.pointerId);
     } catch {
@@ -305,7 +381,7 @@ export function MapViewport({
         startVB: viewBoxRef.current,
       };
     }
-  }, []);
+  }, [stopAnimation]);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {

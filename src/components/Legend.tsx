@@ -1,5 +1,5 @@
 import { EventMarkerShape } from "./EventMarker";
-import type { MarkerShape } from "@/lib/markers";
+import { isDeathEvent, type MarkerShape } from "@/lib/markers";
 import type { MatchData } from "@/lib/types";
 
 interface LegendEntry {
@@ -37,6 +37,20 @@ export function Legend({ match }: { match: MatchData }) {
   const n = (...keys: (keyof typeof counts)[]) =>
     keys.reduce((sum, k) => sum + (counts[k] ?? 0), 0);
 
+  // Mirrors MatchLayer's rule: a journey is drawn only when it has >1 event, and an
+  // end marker only when that journey contains no death at all (a death already has
+  // its own marker). Checking for any death rather than the last event matters --
+  // logging often continues past the fatal event.
+  const journeyCounts = (() => {
+    const byPlayer = match.players.map(() => [] as typeof match.events);
+    for (const ev of match.events) byPlayer[ev.p]?.push(ev);
+    const drawn = byPlayer.filter((evs) => evs.length > 1);
+    return {
+      starts: drawn.length,
+      openEnds: drawn.filter((evs) => !evs.some((ev) => isDeathEvent(ev.e))).length,
+    };
+  })();
+
   const playerEntries: LegendEntry[] = [
     { shape: "circle", color: "var(--color-human)", label: "Human", count: match.human_count },
     { shape: "circle", color: "var(--color-bot)", label: "Bot", count: match.bot_count, opacity: 0.7 },
@@ -65,6 +79,25 @@ export function Legend({ match }: { match: MatchData }) {
     { shape: "square", color: "var(--color-loot)", label: "Loot", count: n("Loot") },
   ];
 
+  // Journey endpoints. A journey ending in a death is already marked by its death
+  // marker, so only non-death endings get an explicit end marker -- hence the two
+  // counts differ. "Last position" is deliberately not "survived": the schema has no
+  // extraction event, so all that's known is that recording stopped.
+  const journeyEntries: LegendEntry[] = [
+    {
+      shape: "ring",
+      color: "var(--color-textSecondary)",
+      label: "Journey start",
+      count: journeyCounts.starts,
+    },
+    {
+      shape: "bullseye",
+      color: "var(--color-textSecondary)",
+      label: "Last position",
+      count: journeyCounts.openEnds,
+    },
+  ];
+
   return (
     <div className="rounded-md border border-border bg-surface/90 p-3 backdrop-blur-sm">
       <h2 className="text-ui-emphasis mb-2 text-textPrimary">Legend</h2>
@@ -77,6 +110,12 @@ export function Legend({ match }: { match: MatchData }) {
 
       <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-2">
         {eventEntries.map((entry) => (
+          <Swatch key={entry.label} entry={entry} />
+        ))}
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-2">
+        {journeyEntries.map((entry) => (
           <Swatch key={entry.label} entry={entry} />
         ))}
       </div>

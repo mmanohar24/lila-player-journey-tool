@@ -1,6 +1,20 @@
 import type { EventType } from "./types";
 
-export type MarkerShape = "circle" | "diamond" | "cross" | "triangle" | "square";
+export type MarkerShape =
+  | "circle"
+  | "diamond"
+  | "cross"
+  | "triangle"
+  | "square"
+  /** Journey start -- a hollow ring, i.e. a position sample marked as the origin. */
+  | "ring"
+  /** Journey end -- a ring with a centre dot, distinguishable from `ring` by shape alone. */
+  | "bullseye";
+
+/** Event types that represent the player dying. */
+export function isDeathEvent(event: EventType): boolean {
+  return event === "Killed" || event === "BotKilled" || event === "KilledByStorm";
+}
 
 /**
  * Shape per event type, per design.md's Components section. Shape (not colour alone)

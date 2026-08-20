@@ -3,6 +3,7 @@ import {
   eventPhrase,
   eventRole,
   EVENT_SHAPE,
+  isDeathEvent,
   isPositionEvent,
   markerAriaLabel,
   markerColor,
@@ -40,7 +41,9 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
   }
 
   return (
-    <g>
+    // `key` on the match id so React mounts a fresh node per match, restarting the
+    // entrance animation rather than reusing the previous match's element.
+    <g key={match.match_id} className="match-layer">
       {/* One focusable group per player: journey path + that player's position samples.
           Position samples are the bulk of the data (~82% of rows) and are labelled once
           per player rather than per dot -- individually labelling ~800 "position sample"
@@ -58,6 +61,24 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
           })
           .join(" ");
 
+        const playerColor = player.is_bot ? "var(--color-bot)" : "var(--color-human)";
+        const first = events[0];
+        const last = events[events.length - 1];
+        const start = worldToPixel(first.x, first.z, map);
+        const end = worldToPixel(last.x, last.z, map);
+        // Whether the journey contains a death AT ALL -- deliberately not "is the last
+        // event a death". Logging frequently continues past the fatal event: 28% of
+        // journeys containing a death have later events, sometimes a stray position
+        // sample 1ms afterwards. Keying off the last event alone therefore labelled
+        // those as "no death recorded", which is simply wrong.
+        const death = events.find((ev) => isDeathEvent(ev.e));
+        const endsInDeath = death !== undefined;
+        // Deliberately NOT called "survived"/"extracted": the schema has no extraction
+        // event (PRD.md §2), so all we can honestly claim is that recording stopped.
+        const endText = death
+          ? `ends in death — ${eventPhrase(death.e, player.is_bot).sentence}`
+          : "ends at last recorded position (no death recorded)";
+
         return (
           <g
             key={`journey-${playerIndex}`}
@@ -66,12 +87,14 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
             className="journey"
             aria-label={`${player.is_bot ? "Bot" : "Human player"} ${player.id}: journey path with ${
               positions.length
-            } position samples`}
+            } position samples, ${endText}`}
             /* Tooltip content is read off these by MapViewport rather than rendered as
                an SVG <title>: <title> produces the browser's native tooltip, which has a
                fixed ~1s delay and can't be styled to match the app's surfaces. */
             data-tt-title={`${player.is_bot ? "Bot" : "Human"} ${player.id}`}
-            data-tt-meta={`${positions.length} position samples`}
+            data-tt-sub={`${positions.length} position samples`}
+            data-tt-meta={endText}
+            data-tt-color={playerColor}
           >
 
             {/* Focus/hover halo: highlights this player's whole route. */}
@@ -112,6 +135,33 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
                 />
               );
             })}
+
+            {/* Journey endpoints, drawn last so they sit above the position samples.
+                They carry no separate aria-label or tab stop: they're properties of
+                this journey, already described in the group's label above, and making
+                them focusable would triple the tab count for no new information. */}
+            {events.length > 1 && (
+              <EventMarkerShape
+                shape="ring"
+                cx={start.px}
+                cy={start.py}
+                r={positionRadius * 2.4}
+                color={playerColor}
+                opacity={player.is_bot ? BOT_OPACITY : 1}
+                strokeWidth={pathWidth * 2.5}
+              />
+            )}
+            {events.length > 1 && !endsInDeath && (
+              <EventMarkerShape
+                shape="bullseye"
+                cx={end.px}
+                cy={end.py}
+                r={positionRadius * 2.4}
+                color={playerColor}
+                opacity={player.is_bot ? BOT_OPACITY : 1}
+                strokeWidth={pathWidth * 2.5}
+              />
+            )}
           </g>
         );
       })}
