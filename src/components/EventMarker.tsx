@@ -59,17 +59,32 @@ export function EventMarkerShape({
         />
       );
 
+    // Journey endpoints sit inside a dense field of same-hue position dots, so the ring
+    // alone had nothing to separate it from its surroundings. A dark casing underneath
+    // (the map background colour, not a new palette entry) cuts a gap around the shape
+    // so it reads as a distinct object -- the same trick as a halo/casing on map labels.
     case "ring":
       return (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeOpacity={opacity}
-          strokeWidth={strokeWidth}
-        />
+        <g>
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke="var(--color-background)"
+            strokeOpacity={0.85}
+            strokeWidth={strokeWidth * 2.6}
+          />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeOpacity={opacity}
+            strokeWidth={strokeWidth}
+          />
+        </g>
       );
 
     case "bullseye":
@@ -80,11 +95,29 @@ export function EventMarkerShape({
             cy={cy}
             r={r}
             fill="none"
+            stroke="var(--color-background)"
+            strokeOpacity={0.85}
+            strokeWidth={strokeWidth * 2.6}
+          />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
             stroke={color}
             strokeOpacity={opacity}
             strokeWidth={strokeWidth}
           />
-          <circle cx={cx} cy={cy} r={r * 0.4} fill={color} fillOpacity={opacity} />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r * 0.42}
+            fill={color}
+            fillOpacity={opacity}
+            stroke="var(--color-background)"
+            strokeOpacity={0.85}
+            strokeWidth={strokeWidth * 0.9}
+          />
         </g>
       );
 

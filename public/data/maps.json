@@ -2,7 +2,7 @@
   "AmbroseValley": {
     "id": "AmbroseValley",
     "displayName": "Ambrose Valley",
-    "image": "/minimaps/AmbroseValley_Minimap.png",
+    "image": "/minimaps/AmbroseValley_Minimap.webp",
     "width": 4320,
     "height": 4320,
     "scale": 900,
@@ -12,7 +12,7 @@
   "GrandRift": {
     "id": "GrandRift",
     "displayName": "Grand Rift",
-    "image": "/minimaps/GrandRift_Minimap.png",
+    "image": "/minimaps/GrandRift_Minimap.webp",
     "width": 2160,
     "height": 2158,
     "scale": 581,
@@ -22,7 +22,7 @@
   "Lockdown": {
     "id": "Lockdown",
     "displayName": "Lockdown",
-    "image": "/minimaps/Lockdown_Minimap.jpg",
+    "image": "/minimaps/Lockdown_Minimap.webp",
     "width": 9000,
     "height": 9000,
     "scale": 1000,

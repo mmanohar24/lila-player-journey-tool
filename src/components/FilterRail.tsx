@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PickerEntry } from "@/lib/types";
@@ -43,6 +43,71 @@ export function FilterRail({
   const filtered = useMemo(
     () => entries.filter((e) => (map === ALL || e.map === map) && (date === ALL || e.date === date)),
     [entries, map, date]
+  );
+
+  const mapNames = useMemo(
+    () => Object.fromEntries(maps.map((m) => [m.id, m.displayName])),
+    [maps]
+  );
+
+  // Roving tabindex: the row that carries the tab stop. Starts on the selected match so
+  // tabbing into the list lands where the user already is, rather than at row 0.
+  const selectedIndex = Math.max(
+    0,
+    filtered.findIndex((e) => e.id === selectedMatchId)
+  );
+  const [focusIndex, setFocusIndex] = useState(selectedIndex);
+
+  // Keep the tab stop on the selection as filters (and so the list) change. Adjusted
+  // during render rather than in an effect -- React's documented pattern for deriving
+  // state from a changed prop, and it avoids a second render pass.
+  const [prevSelectedIndex, setPrevSelectedIndex] = useState(selectedIndex);
+  if (prevSelectedIndex !== selectedIndex) {
+    setPrevSelectedIndex(selectedIndex);
+    setFocusIndex(selectedIndex);
+  }
+
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const moveFocus = useCallback(
+    (next: number) => {
+      const clamped = Math.min(Math.max(next, 0), filtered.length - 1);
+      setFocusIndex(clamped);
+      listRef.current
+        ?.querySelector<HTMLElement>(`[data-row="${clamped}"]`)
+        ?.focus({ preventScroll: false });
+    },
+    [filtered.length]
+  );
+
+  const handleListKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLUListElement>) => {
+      const keys = ["ArrowDown", "ArrowUp", "Home", "End", "PageDown", "PageUp"];
+      if (!keys.includes(e.key)) return;
+      e.preventDefault();
+      const step = 10;
+      switch (e.key) {
+        case "ArrowDown":
+          moveFocus(focusIndex + 1);
+          break;
+        case "ArrowUp":
+          moveFocus(focusIndex - 1);
+          break;
+        case "PageDown":
+          moveFocus(focusIndex + step);
+          break;
+        case "PageUp":
+          moveFocus(focusIndex - step);
+          break;
+        case "Home":
+          moveFocus(0);
+          break;
+        case "End":
+          moveFocus(filtered.length - 1);
+          break;
+      }
+    },
+    [focusIndex, filtered.length, moveFocus]
   );
 
   /** Changing a filter keeps the current match if it still qualifies, otherwise jumps to
@@ -131,18 +196,33 @@ export function FilterRail({
 
           {/* The sparsity is real and worth seeing rather than engineering away
               (PRD.md §8): the full filtered list stays browsable, just ordered so the
-              informative matches surface first. */}
-          <ul className="mt-1 min-h-0 flex-1 overflow-y-auto" aria-label="Matches">
-            {filtered.map((e) => {
+              informative matches surface first.
+
+              Roving tabindex: only one row is ever in the tab order, and arrow keys move
+              between rows. Making all 796 rows focusable put 839 tab stops on the page --
+              the same trap avoided for the map's position markers, reintroduced here. */}
+          <ul
+            className="mt-1 min-h-0 flex-1 overflow-y-auto"
+            ref={listRef}
+            role="listbox"
+            aria-label="Matches"
+            onKeyDown={handleListKeyDown}
+          >
+            {filtered.map((e, i) => {
               const active = e.id === selectedMatchId;
+              const isTabStop = i === focusIndex;
               return (
-                <li key={e.id}>
+                <li key={e.id} role="option" aria-selected={active}>
                   {/* next/link, not a bare <a>: a plain anchor triggers a full document
                       reload on every match selection, which throws away the client
                       runtime (and any in-flight view transition) each time. */}
                   <Link
                     href={buildHref(e.id, map, date)}
+                    tabIndex={isTabStop ? 0 : -1}
+                    data-row={i}
+                    onFocus={() => setFocusIndex(i)}
                     aria-current={active ? "true" : undefined}
+                    title={`Match ${e.id} · ${e.date} · ${e.n} participant${e.n === 1 ? "" : "s"}`}
                     className={`flex min-h-11 items-center gap-2 rounded-sm px-2 text-ui ${
                       active
                         ? "bg-surfaceRaised text-textPrimary"
@@ -150,13 +230,16 @@ export function FilterRail({
                     }`}
                   >
                     <span
+                      aria-label={`${e.n} participant${e.n === 1 ? "" : "s"}`}
                       className="shrink-0 rounded-pill bg-surfaceRaised px-2 py-0.5 text-data text-textPrimary"
-                      title={`${e.n} participant${e.n === 1 ? "" : "s"}`}
                     >
                       {e.n}
                     </span>
-                    <span className="truncate text-data">{e.id.slice(0, 8)}</span>
-                    <span className="ml-auto shrink-0 text-ui text-textSecondary">
+                    {/* The map name, not the id fragment: under "All maps" a hex prefix
+                        gave no clue which map a row would open. The id stays available
+                        via the row's title. */}
+                    <span className="truncate">{mapNames[e.map] ?? e.map}</span>
+                    <span className="ml-auto shrink-0 text-data text-textSecondary">
                       {e.date.slice(5)}
                     </span>
                   </Link>

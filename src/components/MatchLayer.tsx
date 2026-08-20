@@ -145,10 +145,10 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
                 shape="ring"
                 cx={start.px}
                 cy={start.py}
-                r={positionRadius * 2.4}
+                r={positionRadius * 3.2}
                 color={playerColor}
                 opacity={player.is_bot ? BOT_OPACITY : 1}
-                strokeWidth={pathWidth * 2.5}
+                strokeWidth={pathWidth * 3}
               />
             )}
             {events.length > 1 && !endsInDeath && (
@@ -156,10 +156,10 @@ export function MatchLayer({ match, map }: MatchLayerProps) {
                 shape="bullseye"
                 cx={end.px}
                 cy={end.py}
-                r={positionRadius * 2.4}
+                r={positionRadius * 3.2}
                 color={playerColor}
                 opacity={player.is_bot ? BOT_OPACITY : 1}
-                strokeWidth={pathWidth * 2.5}
+                strokeWidth={pathWidth * 3}
               />
             )}
           </g>
