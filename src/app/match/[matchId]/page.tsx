@@ -1,17 +1,32 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getMapConfig, getMapConfigs, getMatch, getPickerEntries } from "@/lib/data";
-import { pixelBounds } from "@/lib/coordinates";
-import { MapViewport } from "@/components/MapViewport";
-import { MatchLayer } from "@/components/MatchLayer";
-import { Legend } from "@/components/Legend";
-import { FilterRail } from "@/components/FilterRail";
-import { PlaybackControls } from "@/components/PlaybackControls";
-import { HeatmapProvider } from "@/components/HeatmapContext";
-import { HeatmapControls } from "@/components/HeatmapControls";
+import { getMapConfig, getMatch } from "@/lib/data";
+import { MatchView } from "@/components/MatchView";
 
 interface PageProps {
   params: Promise<{ matchId: string }>;
   searchParams: Promise<{ map?: string; date?: string }>;
+}
+
+/**
+ * Deep links are `noindex`, per PRD.md §7/§10. These pages expose granular internal
+ * telemetry -- pseudonymous player ids, kill and death coordinates, per-event timings --
+ * and restricting is the reversible choice where over-exposing is not. They remain fully
+ * shareable; they simply aren't offered to search engines. Crawling is deliberately NOT
+ * blocked in robots.txt: a disallowed URL can never be read, so the noindex directive
+ * itself would never be seen.
+ */
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { matchId } = await params;
+  const match = getMatch(matchId);
+  if (!match) return { title: "Match not found", robots: { index: false, follow: false } };
+
+  const map = getMapConfig(match.map_id);
+  return {
+    title: `${map.displayName} · ${match.date} · ${match.participant_count} participants`,
+    description: `Player journeys for one LILA BLACK match on ${map.displayName} (${match.date}): ${match.events.length} recorded events across ${match.participant_count} participants.`,
+    robots: { index: false, follow: true },
+  };
 }
 
 export default async function MatchPage({ params, searchParams }: PageProps) {
@@ -21,68 +36,5 @@ export default async function MatchPage({ params, searchParams }: PageProps) {
   const match = getMatch(matchId);
   if (!match) notFound();
 
-  const map = getMapConfig(match.map_id);
-  const entries = getPickerEntries();
-  const maps = Object.values(getMapConfigs()).map((m) => ({
-    id: m.id,
-    displayName: m.displayName,
-  }));
-  const dates = [...new Set(entries.map((e) => e.date))].sort();
-
-  const dateKey = dateFilter ?? "all";
-  const dateLabel = dateFilter ? `on ${dateFilter}` : "all dates";
-
-  return (
-    <main className="relative h-screen w-screen overflow-hidden bg-background">
-      <HeatmapProvider mapId={map.id} dateKey={dateKey}>
-      {/* The rail is rendered BEFORE the map so keyboard focus reaches the filters
-          first. It is absolutely positioned, so DOM order doesn't affect where it
-          appears -- but with the map first, tabbing had to cross ~37 journey and
-          event markers before arriving at the controls. */}
-      <div className="pointer-events-none absolute inset-0">
-        <FilterRail
-          entries={entries}
-          maps={maps}
-          dates={dates}
-          selectedMatchId={match.match_id}
-          map={mapFilter ?? "all"}
-          date={dateFilter ?? "all"}
-        >
-          {/* Labelled "Now viewing" so selecting a match visibly updates a named
-              readout, rather than only changing the map behind the rail. */}
-          <div className="shrink-0 border-t border-border pt-5">
-            <p className="text-ui text-textSecondary">Now viewing</p>
-            <h1 className="text-heading text-textPrimary">{map.displayName}</h1>
-            <p className="text-ui text-textSecondary">
-              {match.date} · {match.participant_count} participant
-              {match.participant_count === 1 ? "" : "s"} ({match.human_count} human,{" "}
-              {match.bot_count} bot) · {match.events.length} events
-            </p>
-            <p className="text-data mt-1 truncate text-textSecondary" title={match.match_id}>
-              {match.match_id}
-            </p>
-          </div>
-            <Legend match={match} />
-            <HeatmapControls dateLabel={dateLabel} />
-          </FilterRail>
-        </div>
-
-        {/* Bottom-centre, clear of the left rail and the bottom-right zoom controls. */}
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center md:left-[344px] md:right-20">
-          <div className="w-full max-w-2xl">
-            <PlaybackControls key={match.match_id} eventCount={match.events.length} />
-          </div>
-        </div>
-
-        <MapViewport
-          map={map}
-          focusBounds={pixelBounds(match.events, map) ?? undefined}
-          focusKey={match.match_id}
-          ariaLabel={`Interactive map: player paths and events on ${map.displayName} for match ${match.match_id}.`}
-        >
-          <MatchLayer match={match} map={map} />
-        </MapViewport>
-      </HeatmapProvider>
-    </main>
-  );
+  return <MatchView match={match} mapFilter={mapFilter} dateFilter={dateFilter} />;
 }

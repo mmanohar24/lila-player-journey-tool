@@ -489,6 +489,7 @@ export function MapViewport({
         isDragging ? "cursor-grabbing" : "cursor-grab"
       }`}
       tabIndex={0}
+      id="map-viewport"
       role="group"
       aria-label={`${ariaLabel} Use scroll or pinch to zoom, drag to pan, arrow keys to pan when focused, +/- to zoom, 0 to reset.`}
       onPointerDown={handlePointerDown}
