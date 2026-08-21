@@ -23,6 +23,13 @@ interface HeatmapFile {
 export function HeatmapControls({ dateLabel }: { dateLabel: string }) {
   const { layer, setLayer, mapId, dateKey } = useHeatmap();
   const [file, setFile] = useState<HeatmapFile | null>(null);
+  /** Which map's fetch most recently failed, if any -- not a plain boolean, so switching
+   *  to a map that hasn't failed doesn't need an explicit reset. Resetting synchronously
+   *  in the effect body itself risked showing the OLD map's error while the new map's
+   *  fetch was still in flight, for the render between the mapId change and that fetch
+   *  resolving. */
+  const [failedMapId, setFailedMapId] = useState<string | null>(null);
+  const fetchFailed = failedMapId === mapId;
   const closeDrawer = useCloseDrawer();
 
   // Selecting a match or a filter already closes the mobile drawer, as a side effect of
@@ -37,14 +44,21 @@ export function HeatmapControls({ dateLabel }: { dateLabel: string }) {
 
   // Fetch the map's grids once; the summary for the active layer is then derived
   // during render, so no effect has to synchronously set state when the layer changes.
+  // A failed fetch used to be swallowed silently -- the layer buttons still worked, but
+  // the summary text just went blank with nothing telling anyone why.
   useEffect(() => {
     let cancelled = false;
     fetch(`/data/heatmaps/${mapId}.json`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`heatmap fetch failed: ${r.status}`);
+        return r.json();
+      })
       .then((f) => {
         if (!cancelled) setFile(f);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setFailedMapId(mapId);
+      });
     return () => {
       cancelled = true;
     };
@@ -94,7 +108,9 @@ export function HeatmapControls({ dateLabel }: { dateLabel: string }) {
       </div>
 
       {/* The canvas layer is a raster with nothing for a screen reader to enumerate, so
-          the same finding is stated as text (design.md, Heatmap toggle/legend). */}
+          the same finding is stated as text (design.md, Heatmap toggle/legend).
+          `role="status"` is a live region -- announced automatically, not just visible --
+          so this covers the fetch-failure branch too, not only the summary text. */}
       {layer && summary && (
         <p className="text-ui mt-2 text-textSecondary" role="status">
           {summary.events === 0 ? (
@@ -113,6 +129,11 @@ export function HeatmapControls({ dateLabel }: { dateLabel: string }) {
               {Math.round(summary.peak.share * 100)}% of total).
             </>
           )}
+        </p>
+      )}
+      {layer && !summary && fetchFailed && (
+        <p className="text-ui mt-2 text-textSecondary" role="status">
+          Couldn&apos;t load this heatmap layer. Try again in a moment.
         </p>
       )}
     </section>

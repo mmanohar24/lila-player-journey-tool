@@ -61,8 +61,13 @@ export interface PickerEntry {
   id: string;
   map: MapId;
   date: string;
-  /** Participant count -- the badge, and the sort key (PRD.md §8). */
+  /** Participant count -- the badge, and the default sort key (PRD.md §8). */
   n: number;
+  /** Kill + Killed + BotKill + BotKilled + KilledByStorm -- the "sort by combat" key.
+   *  Not derivable from `event_count`, which is dominated by Position/Loot (see
+   *  INSIGHTS.md, "This dataset barely has any humans playing together"); computed once
+   *  in scripts/build_data.py so sorting never has to fetch all 796 per-match files. */
+  combat: number;
 }
 
 export interface MatchIndexEntry {
@@ -73,4 +78,5 @@ export interface MatchIndexEntry {
   human_count: number;
   bot_count: number;
   event_count: number;
+  combat_count: number;
 }

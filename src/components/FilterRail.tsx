@@ -8,6 +8,8 @@ import type { PickerEntry } from "@/lib/types";
 
 const ALL = "all";
 
+type SortMode = "richest" | "combat";
+
 interface FilterRailProps {
   entries: PickerEntry[];
   maps: { id: string; displayName: string }[];
@@ -71,13 +73,29 @@ export function FilterRail({
     }
   }, [open, closeRail]);
 
+  /** Default view: mostly solo bot-filled lobbies (INSIGHTS.md, "This dataset barely has
+   *  any humans playing together"), so "richest" alone doesn't surface a match with real
+   *  fighting in it. This is the other axis, not a replacement -- richest-first stays the
+   *  default. */
+  const [sortMode, setSortMode] = useState<SortMode>("richest");
+
   // Filtering runs in-memory over the compact index, so changing map/date updates the
   // list instantly instead of waiting on a server round trip. Entries arrive
-  // richest-first, and filtering preserves that order.
-  const filtered = useMemo(
-    () => entries.filter((e) => (map === ALL || e.map === map) && (date === ALL || e.date === date)),
-    [entries, map, date]
-  );
+  // richest-first, and filtering preserves that order -- sorting by combat needs an
+  // explicit re-sort, since the server-side order (data.ts `getPickerEntries`) is only
+  // ever by participant count.
+  const filtered = useMemo(() => {
+    const matches = entries.filter(
+      (e) => (map === ALL || e.map === map) && (date === ALL || e.date === date)
+    );
+    if (sortMode === "combat") {
+      return [...matches].sort(
+        (a, b) =>
+          b.combat - a.combat || b.n - a.n || a.date.localeCompare(b.date) || a.id.localeCompare(b.id)
+      );
+    }
+    return matches;
+  }, [entries, map, date, sortMode]);
 
   const mapNames = useMemo(
     () => Object.fromEntries(maps.map((m) => [m.id, m.displayName])),
@@ -259,12 +277,48 @@ export function FilterRail({
               heatmap controls entirely below the fold. Three rows is enough to show that
               the list is a list and that it scrolls. */}
           <div className="flex min-h-[132px] flex-1 flex-col [@media(min-height:600px)]:min-h-[252px]">
+            {/* "Richest" alone can't surface a fight -- most richer-looking matches are
+                one human plus a bot-filled lobby (INSIGHTS.md), not organic combat. This
+                sits above the count/list so the ordering it controls is legible right
+                below it, matching the heatmap layer toggle's group/aria-pressed pattern. */}
+            <div className="flex items-center justify-between gap-2">
+              <span id="sort-mode-label" className="text-ui text-textSecondary">
+                Sort by
+              </span>
+              <div className="flex gap-1" role="group" aria-labelledby="sort-mode-label">
+                <button
+                  type="button"
+                  onClick={() => setSortMode("richest")}
+                  aria-pressed={sortMode === "richest"}
+                  aria-label="Sort matches by participant count, most first"
+                  className={`h-11 rounded-sm border border-border px-3 text-ui ${
+                    sortMode === "richest" ? "bg-surfaceRaised text-textPrimary" : "text-textSecondary"
+                  }`}
+                >
+                  Participants
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortMode("combat")}
+                  aria-pressed={sortMode === "combat"}
+                  aria-label="Sort matches by combat event count, most first"
+                  className={`h-11 rounded-sm border border-border px-3 text-ui ${
+                    sortMode === "combat" ? "bg-surfaceRaised text-textPrimary" : "text-textSecondary"
+                  }`}
+                >
+                  Combat
+                </button>
+              </div>
+            </div>
+
             {/* One string, not interleaved expressions: React separates adjacent
                 expressions with `<!-- -->`, which a screen reader treats as a break and
                 reads as fragments ("796", "match", "es"). */}
-            <p id="match-count" className="text-ui text-textSecondary">
+            <p id="match-count" className="mt-2 text-ui text-textSecondary">
               {`${filtered.length} ${filtered.length === 1 ? "match" : "matches"}${
-                filtered.length > 0 ? " · most participants first" : ""
+                filtered.length > 0
+                  ? ` · most ${sortMode === "combat" ? "combat events" : "participants"} first`
+                  : ""
               }`}
             </p>
 
@@ -301,7 +355,9 @@ export function FilterRail({
                       data-row={i}
                       onFocus={() => setFocusIndex(i)}
                       aria-current={active ? "true" : undefined}
-                      title={`Match ${e.id} · ${e.date} · ${e.n} participant${e.n === 1 ? "" : "s"}`}
+                      title={`Match ${e.id} · ${e.date} · ${e.n} participant${
+                        e.n === 1 ? "" : "s"
+                      } · ${e.combat} combat event${e.combat === 1 ? "" : "s"}`}
                       className={`flex min-h-11 items-center gap-2 rounded-sm px-2 text-ui ${
                         active
                           ? "bg-surfaceRaised text-textPrimary"
@@ -314,6 +370,17 @@ export function FilterRail({
                       >
                         {e.n}
                       </span>
+                      {/* Only shown while sorted by it -- otherwise the visible order
+                          ("richest" mode) and the badges on screen would disagree about
+                          what's being ranked. */}
+                      {sortMode === "combat" && (
+                        <span
+                          aria-label={`${e.combat} combat event${e.combat === 1 ? "" : "s"}`}
+                          className="shrink-0 rounded-pill bg-surfaceRaised px-2 py-0.5 text-data text-textPrimary"
+                        >
+                          {e.combat}
+                        </span>
+                      )}
                       {/* The map name, not the id fragment: under "All maps" a hex prefix
                           gave no clue which map a row would open. The id stays available
                           via the row's title. */}

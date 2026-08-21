@@ -29,7 +29,13 @@ export function getMatchesIndex(): MatchIndexEntry[] {
  */
 export function getPickerEntries(): PickerEntry[] {
   return getMatchesIndex()
-    .map((m) => ({ id: m.match_id, map: m.map_id, date: m.date, n: m.participant_count }))
+    .map((m) => ({
+      id: m.match_id,
+      map: m.map_id,
+      date: m.date,
+      n: m.participant_count,
+      combat: m.combat_count,
+    }))
     .sort((a, b) => b.n - a.n || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 }
 

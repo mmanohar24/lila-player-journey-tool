@@ -26,6 +26,13 @@ UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 
+# Every event type that represents a kill or a death, regardless of which side (human or
+# bot) logged it or was on the receiving end -- see markers.ts `isDeathEvent` for the
+# death-only subset used elsewhere. `event_count` alone isn't a usable "combat" proxy: it's
+# dominated by Position/BotPosition/Loot (see stats.json), so a picker sort meant to surface
+# fights needs this counted separately, not derived client-side from event_count.
+COMBAT_EVENT_TYPES = {"Kill", "Killed", "BotKill", "BotKilled", "KilledByStorm"}
+
 DAY_DIRS = [
     "February_10",
     "February_11",
@@ -162,6 +169,8 @@ def main() -> None:
         }
         (MATCHES_DIR / f"{match_id}.json").write_text(json.dumps(match_json, separators=(",", ":")))
 
+        combat_count = sum(match_event_counts.get(e, 0) for e in COMBAT_EVENT_TYPES)
+
         matches_index.append(
             {
                 "match_id": match_id,
@@ -171,6 +180,7 @@ def main() -> None:
                 "human_count": human_count,
                 "bot_count": bot_count,
                 "event_count": len(events),
+                "combat_count": combat_count,
             }
         )
 
