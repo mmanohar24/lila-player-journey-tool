@@ -1,172 +1,55 @@
 # Insights
 
-Everything below comes from actually running the finished pipeline output
-through the finished tool — filtering, opening matches, and switching heatmap
-layers — not written before the tool existed. Every number here is
-reproducible from `public/data/*.json`; the exact queries are noted inline so
-they can be re-run.
+These are three things that actually caught my eye once the tool was working and I could click through real matches instead of just reading rows in a terminal. Every number below comes straight from `public/data/*.json`.
 
-## 1. This is a solo-player dataset wearing a multiplayer schema
+## 1. This dataset barely has any humans playing together
 
-The single most consequential finding, and the one that explains several
-smaller ones below: **only one match in the entire 796-match dataset has more
-than one human player.** That match (`AmbroseValley`, 2026-02-12) has exactly
-2 humans and 0 bots. Every other match with more than one participant — all
-36 of them, including every one of the "richest" matches the picker
-surfaces — is exactly **1 human plus N bots**. There is no organic multiplayer
-in this dataset; "populated" and "AI-filled" are, with one exception, the
-same thing.
+I opened one of the "richest" matches in the picker expecting to see a real multiplayer fight. Sixteen participants sounded like a proper server, but it's one human and 15 bots.
+
+So I checked how common that actually is. Out of all 796 matches, exactly **one** has more than one human player: an AmbroseValley match on 2026-02-12 with 2 humans and, notably, 0 bots. Every other match with more than one file breaks down two ways: 36 of them are one human plus a pile of bots, and 16 of them, surprisingly, **have zero humans at all.** No player, just bots, and the data still records it as a "match" with a participant count like any other.
 
 ```
-matches with >1 human:  1 / 796   (0.13%)
-matches with >1 bot:    36 / 796  (4.5%) — all of them exactly 1 human + N bots
+matches with >1 human:        1 / 796
+matches, 1 human + bots:      36 / 796
+matches, 0 humans (bots only): 16 / 796
 ```
 
-This reframes what the richer matches actually show a Level Designer: not
-"how do groups of players interact," but "how does a single player's run
-look against an AI-populated lobby." The tool doesn't misrepresent this —
-the legend always shows the real human/bot split per match — but it's worth
-stating plainly rather than letting "16 participants" imply something the
-data doesn't contain.
+(source: `public/data/matches-index.json`, which lists `human_count` and `bot_count` per match)
 
-## 2. True human-vs-human combat is a data anomaly, not just rare
+Participant count on its own isn't a safe proxy for "a real player was engaged here." A match showing 12 participants could be one human's session, or it could be a lobby nobody ever logged into. If anyone downstream wants to pull "engagement" or "session richness" metrics from this data, they need to filter on human presence first, not just count files. Otherwise you'd be measuring bot activity and calling it player behavior.
 
-`Kill`/`Killed` — the README's definition of human-killed-human — total
-**3 events each**, out of 89,104 rows across 5 days. Finding #1 already makes
-this population-level expected: with only one match containing two humans,
-there's barely a match where this event *could* fire under the README's own
-definition.
+For a Level Designer, the honest read is: this snapshot is mostly "how does one player's run look surrounded by AI," not "how do players interact with each other." That's still useful (it's exactly what the tool is built to show), but worth knowing going in, so nobody draws a multiplayer-balance conclusion from what's actually a mostly solo dataset.
 
-What's stranger: checking which matches those 6 rows actually belong to
-shows all three `Kill`/`Killed` pairs sit in matches with **1 human, 0
-bots** — a single-participant match, with no second file of any kind for
-that `match_id` in this dataset. Whoever the counterparty was has no
-corresponding row here. This is the same category of README-vs-data gap
-PRD.md §2 already documented for minimap size, match duration, and files-
-per-match — surfaced by checking the schema's own claims against what the
-data contains, not by trusting the event name.
+## 2. The GrandRift combat heatmap can't be trusted day-by-day
 
-```python
-# public/data/matches/*.json, filtered to events with e in ("Kill","Killed")
-711c9a67…  1 human / 0 bot  → Kill, Killed
-042774ea…  1 human / 0 bot  → Kill, Killed
-c4a250c9…  1 human / 0 bot  → Kill, Killed
-```
+GrandRift is the least-played map by a wide margin: 59 of 796 matches, 7.4%, versus AmbroseValley's 71%. I noticed this mattered once I started switching the heatmap between dates. On some days GrandRift's kill/death layers looked almost empty, and I wasn't sure if that was a real pattern or just not enough data.
 
-## 3. Bots fight each other, and the README's event table has no name for it
-
-The README's Combat Events table defines `BotKill`/`BotKilled` only from a
-human's perspective ("a human player killed a bot" / "was killed by a bot").
-Checking which player's own file each row actually sits in tells a different
-story:
-
-| Event | Filed under a human's journey | Filed under a **bot's own** journey |
-|---|---|---|
-| `BotKill` | 2,232 (92.4%) | **183 (7.6%)** |
-| `BotKilled` | 403 (57.6%) | **297 (42.4%)** |
-
-A bot being the subject of its own `BotKill`/`BotKilled` row means bot-on-bot
-combat is real and reasonably common — 297 bot-filed deaths is the same order
-of magnitude as the 403 human-filed ones. The README's table simply has no
-category for this, since it only names two of the three possible parties to
-a kill. `eventPhrase()` (see ARCHITECTURE.md §7) resolves this by wording
-bot-owned rows neutrally ("got a kill" / "was killed") rather than asserting
-a counterparty the schema can't support.
-
-## 4. Bots occasionally emit "human" events too
-
-Separately from combat: 636 `Position` rows and 115 `Loot` rows are filed
-under a bot's own journey, even though the README states bots only emit
-`BotPosition`/`BotKill`/`BotKilled`. Small in volume (1.2% of all `Position`-
-named rows, 0.9% of all `Loot`), but real, and the reason marker color in the
-tool resolves from the pipeline's `user_id`-shape classification rather than
-the event name (ARCHITECTURE.md §7).
-
-## 5. Map popularity is heavily skewed toward one map
+Mostly it's the latter. Across all three maps, five dates, and the kills/deaths layers (30 combinations total), 12 fall under the 30-event threshold the pipeline uses to flag a grid as too sparse to read, and 8 of those 12 are GrandRift. Its deaths layer is under-threshold on every single day (15, 10, 4, 15, and 8 events across the five dates) and only clears the bar once you pool the entire week together (52 events).
 
 ```
-AmbroseValley  566 matches  (71.1%)
-Lockdown       171 matches  (21.5%)
-GrandRift       59 matches  ( 7.4%)
+GrandRift deaths, per day:  15 / 10 / 4 / 15 / 8   -> all under 30
+GrandRift deaths, pooled:   52                      -> clears it
 ```
 
-This directly drives finding #6 below — GrandRift's low volume isn't a
-pipeline artifact, it's the least-played map by a wide margin, and every
-GrandRift-specific reading downstream inherits that small sample.
+(source: `public/data/heatmaps/GrandRift.json`, per-date `events` counts and the pipeline's own `meaningful` flag)
 
-## 6. The heatmap sparsity risk PRD.md §10 anticipated is real, and concentrated on one map
+The actionable part: if anyone uses this tool to make a call about GrandRift's combat balance, they should only look at the "all dates" view, never a single day. A single-day reading there is basically noise dressed up as a heatmap. The traffic layer doesn't have this problem on any map or date; it's specifically combat density on the least-played map that runs thin.
 
-Per date, per map, the kills and deaths layers fall below the "too few
-events to read as a pattern" threshold (30 events, ARCHITECTURE.md §2) in
-**12 of 30** map×date×layer combinations — and 9 of those 12 are GrandRift.
-Every single per-date slice of GrandRift's `deaths` layer falls under the
-threshold; only pooling all 5 days together (52 events) clears it:
+## 3. There are real chokepoints, and the tool found one without knowing it existed
 
-```
-GrandRift deaths   02-10:15  02-11:10  02-12:4  02-13:15  02-14:8   all:52 ✓
-GrandRift kills    02-10:68✓ 02-11:77✓ 02-12:20 02-13:14  02-14:14  all:193 ✓
-```
+Density isn't close to evenly spread on any map. AmbroseValley's traffic, kills, and deaths all peak in the same southwest region (40-42% share). Lockdown does the same in the northeast (33-37%). GrandRift is more interesting: traffic and kills both peak northwest (32-34%), but deaths peak southwest instead (39%). (source: `public/data/heatmaps/*.json`, each layer's precomputed `peak.quadrant` and `peak.share`)
 
-The `traffic` layer never hits this floor on any map or date — Position
-events are common enough everywhere to stay meaningful even sliced thin. The
-constraint is specifically combat density on the least-played map, exactly
-the shape of risk PRD.md §10 flagged before the tool existed to check it
-against. Practical read for a Level Designer: **trust GrandRift's combat
-heatmap only at "all dates," never at a single day.**
+GrandRift's northwest traffic hotspot sits almost exactly on "Mine Pit," a named landmark baked into the map art. Nothing in the pipeline or the tool knows that name (it has no concept of map landmarks at all), so watching the aggregate player data independently rediscover a spot the level designers clearly built as a chokepoint felt like a decent sanity check that the coordinate math is landing markers in the right place, not just somewhere plausible. (That last part, the landmark name itself, is a visual check against the minimap art, not something any data file names. No JSON here knows what "Mine Pit" is.)
 
-## 7. Where players actually die isn't spread evenly — and on one map, the data rediscovers a named landmark on its own
+A Kill row logs at the killer's position, Killed at the victim's, so for a ranged fight those can land in different parts of the map. That's exactly what happens on GrandRift: the kill quadrant and the death quadrant diverge. "Kill hotspot" and "death hotspot" aren't always the same region, and shouldn't be read as interchangeable when eyeballing the map.
 
-Density is never close to an even 25%-per-quadrant split on any map:
+For a Level Designer, AmbroseValley's southwest corner and GrandRift's Mine Pit area both look like real, worth-checking chokepoints. Loot density, cover, and nearby extraction routes there seem like the obvious first things to review for balance.
 
-```
-              traffic peak         kills peak            deaths peak
-AmbroseValley southwest 40.2%      southwest 42.1%        southwest 41.9%
-GrandRift     northwest 32.1%      northwest 34.1%         southwest 39.1%
-Lockdown      northeast 36.9%      northeast 35.4%         northeast 33.4%
-```
+---
 
-On GrandRift, opening the traffic heatmap and looking at where the hottest
-single spot lands shows it sitting almost exactly on **"Mine Pit"** — a named
-point of interest baked into the map art itself. Nothing in the pipeline or
-the tool knows map landmark names; the aggregate position data reproduced a
-designed chokepoint independently, which is a reasonable sanity check that
-the coordinate transform (ARCHITECTURE.md §3) is landing markers in the
-right place, not just inside the right map.
+### A few smaller things I noticed along the way
 
-AmbroseValley's kills hotspot is tighter still — a single bridge/junction
-crossing rather than a whole quadrant — which reads as a genuine chokepoint,
-not sampling noise.
-
-**One caveat worth flagging to Level Design directly:** on GrandRift, the
-*kills* peak (northwest) and the *deaths* peak (southwest) are different
-quadrants. A `Kill` row is logged at the killer's position, a `Killed` row
-at the victim's — for a ranged engagement those can genuinely be in
-different places. "Kill hotspot" and "death hotspot" are not always the same
-map region, and shouldn't be read as interchangeable.
-
-## 8. Bots move in tight local clusters; the rare human runs cover real distance
-
-Visually comparing a 16-participant AmbroseValley match against a 1-
-participant one shows a consistent pattern: bot paths bundle into 4-5 dense
-hub-and-spoke clusters, each centered on a small area, rather than traversing
-the map. The lone human's path in the sparse match, by contrast, is one long
-traverse following the river most of the way across the map, picking up loot
-along the route. This is consistent with #1 and #5 — bots appear to hold
-local zones rather than pathing across the map the way the one available
-human trace does — but it's a qualitative read from a handful of matches,
-not a claim backed by a population large enough to generalize confidently.
-
-## 9. What this means for Level Design, concretely
-
-- **AmbroseValley's southwest region and the Mine Pit area on GrandRift are
-  real chokepoints**, not artifacts — worth a look for balance (loot density,
-  cover, extraction routes nearby).
-- **Don't read GrandRift's per-day combat heatmap** — pool the full date
-  range, or wait for more data. The traffic layer doesn't have this problem.
-- **"16 participants" in the picker almost always means "1 human, 15 bots,"**
-  not a populated multiplayer lobby — worth knowing before drawing
-  conclusions about player-vs-player behavior from a rich-looking match.
-- **True PvP essentially isn't represented in this snapshot.** Any question
-  about human-vs-human combat balance needs a different, larger capture
-  window than these 5 days — 3 `Kill` events total isn't a sample size
-  anything can be concluded from.
+- **True human-vs-human combat (`Kill`/`Killed`) is 3 events total, across the entire 89K-row, 5-day dataset,** and all three sit in matches where there's only one participant file recorded, meaning there's no second file showing who the other side was. That's about as thin as a sample can get; I wouldn't build any PvP-balance conclusion on it without a longer capture window.
+- **Bots fight each other, and the README's own event table has no name for it.** It defines `BotKill`/`BotKilled` only from a human's point of view, but 183 `BotKill` and 297 `BotKilled` rows are filed under a bot's own journey: bot-on-bot combat the table just doesn't describe.
+- **A small number of bots emit "human" events too.** 636 `Position` and 115 `Loot` rows show up under bot journeys, even though the README says bots only emit the `Bot*`-prefixed events. Small in volume, but it's why the tool colors markers off the actual player ID shape rather than trusting the event name.
+- **Bots seem to hold local zones; the rare human run covers real ground.** Comparing a bot-heavy match to the one genuinely sparse human match, bot paths bundle into a handful of tight clusters while the human's path is one long traverse across the map. I'll say upfront this is a read from a couple of matches, not a large enough sample to treat as a confirmed pattern. More of a "worth watching for" than a finding.
