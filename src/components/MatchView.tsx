@@ -40,7 +40,7 @@ export function MatchView({ match, mapFilter, dateFilter }: MatchViewProps) {
     `${plural(match.events.length, "event")}`;
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-background">
+    <main className="relative h-dvh w-screen overflow-hidden bg-background">
       {/* A skip link is the standard escape hatch for a keyboard user who does not want
           to tab through the filter rail to reach the map. */}
       <a

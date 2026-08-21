@@ -28,7 +28,7 @@ export default function Home() {
 
   if (!match) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-8">
+      <main className="flex h-full items-center justify-center p-8">
         <p className="text-ui text-textSecondary">
           No match data found. Run <code className="text-data">scripts/build_data.py</code> to
           generate it.

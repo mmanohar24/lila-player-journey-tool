@@ -36,9 +36,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
     >
-      <body className="text-ui min-h-full flex flex-col">{children}</body>
+      <body className="text-ui flex flex-col">{children}</body>
     </html>
   );
 }

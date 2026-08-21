@@ -56,6 +56,26 @@
   --radius-pill: 999px;
 }
 
+/*
+ * The tool is a fixed, full-viewport HUD: nothing outside the map and its panels is
+ * ever meant to scroll. Stating that here (rather than via h-full/min-h-full utilities
+ * on <html>/<body>) is deliberate -- `height: 100%` resolves against the initial
+ * containing block, which on iOS Safari is the LARGE viewport, i.e. the height with the
+ * toolbars hidden. The toolbars are not hidden, so <body> came out ~90px taller than the
+ * window and the whole document scrolled by that much: the playback bar sat below the
+ * bottom toolbar, and scrolling down to reach it pushed the drawer's Close button off
+ * the top. `100dvh` is the height actually on screen.
+ *
+ * Locking overflow is what keeps dvh stable -- with nothing to scroll, Safari never
+ * collapses its toolbars, so the unit never changes and never resizes the map mid-pinch.
+ */
+html,
+body {
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior-y: none;
+}
+
 body {
   background: var(--color-background);
   color: var(--color-textPrimary);
