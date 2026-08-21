@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PickerEntry } from "@/lib/types";
@@ -36,6 +36,39 @@ export function FilterRail({
 }: FilterRailProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  const closeRail = useCallback(() => setOpen(false), []);
+
+  // Escape dismisses the drawer, opening it moves focus onto Close, and closing it hands
+  // focus back to the opener. All three exist because the drawer covers the map almost
+  // entirely on a phone: reaching the dismiss control meant scrolling the panel back to
+  // the top, which made comparing heatmap layers against the map underneath far more
+  // work than it should be.
+  //
+  // The focus moves live here rather than in the click handler because the opener and
+  // the Close button are each hidden in the state the other belongs to. Focusing the
+  // opener straight after setOpen(false) targeted an element still rendered
+  // `display: none`, which silently dropped focus to <body>; an effect runs after the
+  // commit, when the element it wants is actually on screen.
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open) {
+      wasOpen.current = true;
+      closeRef.current?.focus();
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") closeRail();
+      };
+      document.addEventListener("keydown", onKeyDown);
+      return () => document.removeEventListener("keydown", onKeyDown);
+    }
+    // Only on a real close -- never on mount, which would steal focus from the document.
+    if (wasOpen.current) {
+      wasOpen.current = false;
+      toggleRef.current?.focus();
+    }
+  }, [open, closeRail]);
 
   // Filtering runs in-memory over the compact index, so changing map/date updates the
   // list instantly instead of waiting on a server round trip. Entries arrive
@@ -129,140 +162,173 @@ export function FilterRail({
 
   return (
     <>
-      {/* Below tablet width a fixed side rail would leave the map unusably small
-          (design.md, Layout), so the rail becomes a bottom sheet behind this toggle. */}
+      {/* Unless the viewport is both wide and tall enough for a fixed side rail, it
+          would leave the map unusably small (design.md, Layout), so the rail becomes a
+          drawer behind this toggle. This button only ever opens: once the drawer is up
+          it is hidden, and dismissal lives in the drawer's own header, which stays put
+          however far the panel below it has been scrolled. */}
       <button
+        ref={toggleRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(true)}
         aria-expanded={open}
         aria-controls="filter-rail"
-        className="pointer-events-auto absolute left-3 top-3 z-40 min-h-11 rounded-sm border border-border bg-surfaceRaised px-3 text-ui-emphasis text-textPrimary md:hidden"
+        className={`pointer-events-auto absolute left-3 top-3 z-40 min-h-11 rounded-sm border border-border bg-surfaceRaised px-3 text-ui-emphasis text-textPrimary rail:hidden ${
+          open ? "hidden" : ""
+        }`}
       >
-        {open ? "Close" : "Filters & legend"}
+        Filters &amp; legend
       </button>
 
       <div
         id="filter-rail"
-        className={`pointer-events-auto absolute z-30 flex flex-col gap-5 overflow-y-auto rounded-md border border-border bg-surface/90 p-5 backdrop-blur-sm ${
-          // Mobile: bottom sheet, only when opened. Tablet+: persistent left rail.
-          open ? "inset-x-3 bottom-3 top-16 flex" : "hidden"
-        } md:left-3 md:top-3 md:bottom-3 md:right-auto md:flex md:w-[320px]`}
+        className={`pointer-events-auto absolute z-30 flex-col rounded-md border border-border bg-surface/90 backdrop-blur-sm ${
+          // Phone and short landscape: a drawer, only when opened. It can claim the full
+          // inset now that the opener is hidden behind it, rather than starting below it.
+          open ? "inset-3 flex" : "hidden"
+        } rail:bottom-3 rail:left-3 rail:right-auto rail:top-3 rail:flex rail:w-[320px]`}
       >
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label htmlFor="map-filter" className="text-ui text-textSecondary">
-              Map
-            </label>
-            <select
-              id="map-filter"
-              value={map}
-              onChange={(e) => applyFilter(e.target.value, date)}
-              className={selectClass}
-            >
-              <option value={ALL}>All maps</option>
-              {maps.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.displayName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="date-filter" className="text-ui text-textSecondary">
-              Date
-            </label>
-            <select
-              id="date-filter"
-              value={date}
-              onChange={(e) => applyFilter(map, e.target.value)}
-              className={selectClass}
-            >
-              <option value={ALL}>All dates</option>
-              {dates.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* The min-height belongs on this section, not on the <ul> inside it: with the
-            section free to shrink below the list's own minimum, the list simply
-            overflowed its parent and painted over the panels below. Constraining the
-            section makes the rail scroll instead. */}
-        <div className="flex min-h-[252px] flex-1 flex-col">
-          {/* One string, not interleaved expressions: React separates adjacent
-              expressions with `<!-- -->`, which a screen reader treats as a break and
-              reads as fragments ("796", "match", "es"). */}
-          <p id="match-count" className="text-ui text-textSecondary">
-            {`${filtered.length} ${filtered.length === 1 ? "match" : "matches"}${
-              filtered.length > 0 ? " · most participants first" : ""
-            }`}
-          </p>
-
-          {/* The sparsity is real and worth seeing rather than engineering away
-              (PRD.md §8): the full filtered list stays browsable, just ordered so the
-              informative matches surface first.
-
-              Roving tabindex: only one row is ever in the tab order, and arrow keys move
-              between rows. Making all 796 rows focusable put 839 tab stops on the page --
-              the same trap avoided for the map's position markers, reintroduced here. */}
-          {/* The section's min-height is load-bearing, not cosmetic: as a flex-1 child
-              in a column whose other sections are fixed height, this list is the only
-              thing that can shrink -- and below roughly 700px of viewport height it was
-              shrinking to exactly 0, so the rail showed "50 matches" above an empty gap. */}
-          <ul
-            className="mt-1 min-h-0 flex-1 overflow-y-auto"
-            ref={listRef}
-            role="listbox"
-            aria-label="Matches"
-            aria-describedby="match-count"
-            onKeyDown={handleListKeyDown}
+        {/* A header outside the scroll container, not a sticky child of it: the panel
+            has `p-5`, and a sticky element's offsets resolve against the scrollport's
+            padding box, so `top-0` would have parked it 20px down over its own content. */}
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-3 py-2 rail:hidden">
+          <p className="text-ui-emphasis text-textPrimary">Filters &amp; legend</p>
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={closeRail}
+            className="min-h-11 shrink-0 rounded-sm border border-border bg-surfaceRaised px-3 text-ui-emphasis text-textPrimary"
           >
-            {filtered.map((e, i) => {
-              const active = e.id === selectedMatchId;
-              const isTabStop = i === focusIndex;
-              return (
-                <li key={e.id} role="option" aria-selected={active}>
-                  {/* next/link, not a bare <a>: a plain anchor triggers a full document
-                      reload on every match selection, which throws away the client
-                      runtime (and any in-flight view transition) each time. */}
-                  <Link
-                    href={buildHref(e.id, map, date)}
-                    tabIndex={isTabStop ? 0 : -1}
-                    data-row={i}
-                    onFocus={() => setFocusIndex(i)}
-                    aria-current={active ? "true" : undefined}
-                    title={`Match ${e.id} · ${e.date} · ${e.n} participant${e.n === 1 ? "" : "s"}`}
-                    className={`flex min-h-11 items-center gap-2 rounded-sm px-2 text-ui ${
-                      active
-                        ? "bg-surfaceRaised text-textPrimary"
-                        : "text-textSecondary hover:bg-surfaceRaised"
-                    }`}
-                  >
-                    <span
-                      aria-label={`${e.n} participant${e.n === 1 ? "" : "s"}`}
-                      className="shrink-0 rounded-pill bg-surfaceRaised px-2 py-0.5 text-data text-textPrimary"
-                    >
-                      {e.n}
-                    </span>
-                    {/* The map name, not the id fragment: under "All maps" a hex prefix
-                        gave no clue which map a row would open. The id stays available
-                        via the row's title. */}
-                    <span className="truncate">{mapNames[e.map] ?? e.map}</span>
-                    <span className="ml-auto shrink-0 text-data text-textSecondary">
-                      {e.date.slice(5)}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+            Close
+          </button>
         </div>
 
-        {children}
+        {/* Everything below the header scrolls. `pb-8` so the last line -- the heatmap
+            summary -- doesn't end flush against the panel edge, which read as though
+            there were more content hidden below it. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5 pb-8 rail:pb-5">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label htmlFor="map-filter" className="text-ui text-textSecondary">
+                Map
+              </label>
+              <select
+                id="map-filter"
+                value={map}
+                onChange={(e) => applyFilter(e.target.value, date)}
+                className={selectClass}
+              >
+                <option value={ALL}>All maps</option>
+                {maps.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="date-filter" className="text-ui text-textSecondary">
+                Date
+              </label>
+              <select
+                id="date-filter"
+                value={date}
+                onChange={(e) => applyFilter(map, e.target.value)}
+                className={selectClass}
+              >
+                <option value={ALL}>All dates</option>
+                {dates.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* The min-height belongs on this section, not on the <ul> inside it: with the
+              section free to shrink below the list's own minimum, the list simply
+              overflowed its parent and painted over the panels below. Constraining the
+              section makes the rail scroll instead.
+
+              Keyed on height alone, not on `rail:`, which also asks about width: a phone
+              in landscape leaves the drawer ~236px of scrollable body, and a flat 252px
+              minimum spent all of it on the match list, pushing the legend and the
+              heatmap controls entirely below the fold. Three rows is enough to show that
+              the list is a list and that it scrolls. */}
+          <div className="flex min-h-[132px] flex-1 flex-col [@media(min-height:600px)]:min-h-[252px]">
+            {/* One string, not interleaved expressions: React separates adjacent
+                expressions with `<!-- -->`, which a screen reader treats as a break and
+                reads as fragments ("796", "match", "es"). */}
+            <p id="match-count" className="text-ui text-textSecondary">
+              {`${filtered.length} ${filtered.length === 1 ? "match" : "matches"}${
+                filtered.length > 0 ? " · most participants first" : ""
+              }`}
+            </p>
+
+            {/* The sparsity is real and worth seeing rather than engineering away
+                (PRD.md §8): the full filtered list stays browsable, just ordered so the
+                informative matches surface first.
+
+                Roving tabindex: only one row is ever in the tab order, and arrow keys move
+                between rows. Making all 796 rows focusable put 839 tab stops on the page --
+                the same trap avoided for the map's position markers, reintroduced here. */}
+            {/* The section's min-height is load-bearing, not cosmetic: as a flex-1 child
+                in a column whose other sections are fixed height, this list is the only
+                thing that can shrink -- and below roughly 700px of viewport height it was
+                shrinking to exactly 0, so the rail showed "50 matches" above an empty gap. */}
+            <ul
+              className="mt-1 min-h-0 flex-1 overflow-y-auto"
+              ref={listRef}
+              role="listbox"
+              aria-label="Matches"
+              aria-describedby="match-count"
+              onKeyDown={handleListKeyDown}
+            >
+              {filtered.map((e, i) => {
+                const active = e.id === selectedMatchId;
+                const isTabStop = i === focusIndex;
+                return (
+                  <li key={e.id} role="option" aria-selected={active}>
+                    {/* next/link, not a bare <a>: a plain anchor triggers a full document
+                        reload on every match selection, which throws away the client
+                        runtime (and any in-flight view transition) each time. */}
+                    <Link
+                      href={buildHref(e.id, map, date)}
+                      tabIndex={isTabStop ? 0 : -1}
+                      data-row={i}
+                      onFocus={() => setFocusIndex(i)}
+                      aria-current={active ? "true" : undefined}
+                      title={`Match ${e.id} · ${e.date} · ${e.n} participant${e.n === 1 ? "" : "s"}`}
+                      className={`flex min-h-11 items-center gap-2 rounded-sm px-2 text-ui ${
+                        active
+                          ? "bg-surfaceRaised text-textPrimary"
+                          : "text-textSecondary hover:bg-surfaceRaised"
+                      }`}
+                    >
+                      <span
+                        aria-label={`${e.n} participant${e.n === 1 ? "" : "s"}`}
+                        className="shrink-0 rounded-pill bg-surfaceRaised px-2 py-0.5 text-data text-textPrimary"
+                      >
+                        {e.n}
+                      </span>
+                      {/* The map name, not the id fragment: under "All maps" a hex prefix
+                          gave no clue which map a row would open. The id stays available
+                          via the row's title. */}
+                      <span className="truncate">{mapNames[e.map] ?? e.map}</span>
+                      <span className="ml-auto shrink-0 text-data text-textSecondary">
+                        {e.date.slice(5)}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {children}
+        </div>
       </div>
     </>
   );

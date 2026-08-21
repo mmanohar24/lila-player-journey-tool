@@ -1,6 +1,18 @@
 @import "tailwindcss";
 
 /*
+ * The persistent left rail needs BOTH width and height, and `md:` only asks about
+ * width. A landscape phone is 852px wide and ~320px tall, so it qualified for the
+ * desktop layout and got a 320px rail (39% of the screen) with the mobile Close button
+ * suppressed, a rail taller than the window, and the zoom stack anchored to a bottom
+ * edge it could not reach. Every `md:` that gates the desktop HUD is a `rail:` instead.
+ *
+ * 600px clears a landscape iPhone Pro Max (430px) with room to spare, and sits below
+ * iPad landscape (768px), so tablets and laptops keep the rail.
+ */
+@custom-variant rail (@media (min-width: 768px) and (min-height: 600px));
+
+/*
  * Tokens below are generated from design.md via:
  *   npx @google/design.md export design.md --format css-tailwind
  * with hand-fixes for bugs in that output, verified empirically before

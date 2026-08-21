@@ -89,8 +89,11 @@ export function MatchView({ match, mapFilter, dateFilter }: MatchViewProps) {
           </FilterRail>
         </div>
 
-        {/* Bottom-centre, clear of the left rail and the bottom-right zoom controls. */}
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center md:left-[344px] md:right-20">
+        {/* Bottom-centre, clear of the left rail and the bottom-right zoom controls.
+            `bottom-5` on a phone rather than `bottom-3`: a drag target flush against the
+            bottom of the screen competes with iOS's own edge-swipe gesture, so scrubbing
+            near the end of the timeline kept summoning the app switcher instead. */}
+        <div className="pointer-events-none absolute inset-x-3 bottom-5 z-10 flex justify-center rail:bottom-3 rail:left-[344px] rail:right-20">
           <div className="w-full max-w-2xl">
             <PlaybackControls key={match.match_id} eventCount={match.events.length} />
           </div>

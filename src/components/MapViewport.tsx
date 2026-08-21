@@ -581,7 +581,10 @@ export function MapViewport({
         )}
       </div>
 
-      <div className="pointer-events-none absolute right-3 top-1/2 flex -translate-y-1/2 flex-col gap-1 md:top-auto md:bottom-3 md:translate-y-0">
+      {/* Vertically centred unless the viewport is big enough for the desktop HUD:
+          anchored to the bottom in a ~320px-tall landscape window, the stack ran past
+          the bottom edge and the reset button was sliced in half. */}
+      <div className="pointer-events-none absolute right-3 top-1/2 flex -translate-y-1/2 flex-col gap-1 rail:bottom-3 rail:top-auto rail:translate-y-0">
         <button
           type="button"
           onClick={() => zoomBy(0.7)}
