@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { DrawerCloseProvider } from "./DrawerContext";
 import type { PickerEntry } from "@/lib/types";
 
 const ALL = "all";
@@ -327,7 +328,11 @@ export function FilterRail({
             </ul>
           </div>
 
-          {children}
+          {/* Match rows and the map/date selects close the drawer for free -- picking
+              either navigates, which remounts this component with `open` reset. The
+              heatmap toggles inside `children` have no such navigation to ride on, so
+              they reach back out through this context to close explicitly. */}
+          <DrawerCloseProvider value={closeRail}>{children}</DrawerCloseProvider>
         </div>
       </div>
     </>

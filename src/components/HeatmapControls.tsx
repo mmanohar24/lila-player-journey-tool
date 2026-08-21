@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCloseDrawer } from "./DrawerContext";
 import { useHeatmap, type HeatmapLayerData, type HeatmapLayerKey } from "./HeatmapContext";
 
 const LAYERS: { key: HeatmapLayerKey; label: string }[] = [
@@ -22,6 +23,17 @@ interface HeatmapFile {
 export function HeatmapControls({ dateLabel }: { dateLabel: string }) {
   const { layer, setLayer, mapId, dateKey } = useHeatmap();
   const [file, setFile] = useState<HeatmapFile | null>(null);
+  const closeDrawer = useCloseDrawer();
+
+  // Selecting a match or a filter already closes the mobile drawer, as a side effect of
+  // the route change each triggers. The heatmap layer is deliberately client state, not
+  // a route (see HeatmapContext), so it needs the same "show me the map" close done
+  // explicitly. On the persistent desktop rail this is a no-op -- `open` no longer
+  // affects visibility once the `rail:` breakpoint matches.
+  const selectLayer = (l: HeatmapLayerKey | null) => {
+    setLayer(l);
+    closeDrawer();
+  };
 
   // Fetch the map's grids once; the summary for the active layer is then derived
   // during render, so no effect has to synchronously set state when the layer changes.
@@ -58,7 +70,7 @@ export function HeatmapControls({ dateLabel }: { dateLabel: string }) {
       <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label="Heatmap layer">
         <button
           type="button"
-          onClick={() => setLayer(null)}
+          onClick={() => selectLayer(null)}
           aria-pressed={layer === null}
           className={`h-11 rounded-sm border border-border px-3 text-ui ${
             layer === null ? "bg-surfaceRaised text-textPrimary" : "text-textSecondary"
@@ -70,7 +82,7 @@ export function HeatmapControls({ dateLabel }: { dateLabel: string }) {
           <button
             key={l.key}
             type="button"
-            onClick={() => setLayer(l.key)}
+            onClick={() => selectLayer(l.key)}
             aria-pressed={layer === l.key}
             className={`h-11 rounded-sm border border-border px-3 text-ui ${
               layer === l.key ? "bg-surfaceRaised text-textPrimary" : "text-textSecondary"
